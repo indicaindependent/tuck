@@ -1,0 +1,24 @@
+# Cloudflare Wrangler
+.wrangler/
+.dev.vars
+node_modules/
+
+# Secrets — NEVER commit these
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets.json
+wrangler.toml.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
