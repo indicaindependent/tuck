@@ -10,7 +10,7 @@
 
 **Live:** [market.osintnet.uk](https://market.osintnet.uk)
 
-Built and maintained by **[VPDLNY](https://github.com/vpdlny)** — the Vulnerable Persons Defense League of NY.
+Built and maintained by **[VPDLNY](https://github.com/vpdlny)**.
 
 ---
 
