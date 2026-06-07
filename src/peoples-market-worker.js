@@ -1,19 +1,21 @@
-// ─────────────────────────────────────────────────────────────────────
-// PUBLIC TUCK v2 — Open-source release
-// Replace these upstream URLs with your own worker endpoints, or remove
-// the features that depend on them.
-// ─────────────────────────────────────────────────────────────────────
-// const TUCK_CONFIG = {
-//   SCENARIO_ENGINE: 'https://YOUR-scenario-engine.workers.dev',
-//   INGEST: 'https://YOUR-geoint-ingest.workers.dev',
-//   PRICE: 'https://YOUR-geoint-price.workers.dev',
-//   TUCKS_SCORE: 'https://YOUR-tucks-score.workers.dev',
-// };
-// ─────────────────────────────────────────────────────────────────────
-
 // ═══════════ TUCK v2 BUNDLE START ═══════════
+
+function __confPct(c){
+  if(c==null) return null;
+  if(typeof c==='number') return c<=1?Math.round(c*100):Math.round(c);
+  var s=String(c).toLowerCase().trim();
+  var m={'very low':20,'low':35,'medium':65,'med':65,'moderate':65,'high':88,'very high':95};
+  if(m[s]!=null) return m[s];
+  var n=parseFloat(s); if(!isNaN(n)) return n<=1?Math.round(n*100):Math.round(n);
+  return null;
+}
+function __confLabel(c){
+  var p=__confPct(c); if(p==null) return '';
+  return p>=80?'High':p>=50?'Medium':'Low';
+}
+
 // ==========================================================
-// TUCK v2.0 — bundled at 2026-05-23T15:58:13Z
+// TUCK v2.3.3 — bundled at 2026-05-27T23:35:00Z (v2.3.2 + price regex broadened for 'at today' / 'right now')
 // Source files concatenated. Edit individual files, not this.
 // ==========================================================
 
@@ -420,8 +422,13 @@ const PRIMITIVES_CSS = `
   content:''; width:6px; height:6px; border-radius:50%;
   background: var(--calm);
 }
-.fresh-stale::before { background: var(--neutral); }
-.fresh-old::before   { background: var(--warn); }
+.fresh-live::before  { background: var(--good); }
+.fresh-stale::before { background: var(--warn); }
+.fresh-old::before   { background: var(--danger); animation: fresh-pulse 1.5s ease-in-out infinite; }
+@keyframes fresh-pulse {
+  0%,100% { opacity: 1; }
+  50%     { opacity: 0.4; }
+}
 
 /* ─── Sheet (bottom drawer) ───────────────────────────── */
 .sheet-backdrop {
@@ -677,7 +684,8 @@ const CHROME_CSS = `
 
 /* ─── Top nav links (desktop only) ────────────────────── */
 .topnav { display: none; }
-@media (min-width: 1024px) {
+/* TUCK v2.1 — topnav breakpoint moved 1024 -> 900 to eliminate nav dead zone */
+@media (min-width: 900px) {
   .topnav { display: flex; gap: var(--sp-1); align-items: center; }
   .topnav a {
     height: var(--hit-sm); padding: 0 var(--sp-3);
@@ -765,7 +773,7 @@ function isActive(currentPath, routePath) {
 }
 
 function renderTopBar(currentPath, opts = {}) {
-  const v = opts.vFlag ? `?v=2` : '';
+  const v = opts.vFlag ? `` : '';
   const navLinks = ROUTE_LIST
     .filter(r => r.path !== '/')
     .map(r => {
@@ -790,7 +798,7 @@ function renderTopBar(currentPath, opts = {}) {
 }
 
 function renderTabBar(currentPath, opts = {}) {
-  const v = opts.vFlag ? `?v=2` : '';
+  const v = opts.vFlag ? `` : '';
   const PRIMARY = ROUTE_LIST.filter(r => r.primary);
   const ask = { path: '#ask', label: 'Ask Tuck', icon: 'ask' };
   const tabs = [...PRIMARY, ask];
@@ -810,7 +818,7 @@ function renderTabBar(currentPath, opts = {}) {
 }
 
 function renderDrawer(currentPath, opts = {}) {
-  const v = opts.vFlag ? `?v=2` : '';
+  const v = opts.vFlag ? `` : '';
   return `
 <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
 <aside class="drawer" id="more-drawer" role="dialog" aria-modal="true" aria-label="Navigation" tabindex="-1">
@@ -875,9 +883,11 @@ const CLIENT_JS = `
   function freshnessClass(iso) {
     if (!iso) return 'fresh-old';
     const sec = (Date.now() - new Date(iso).getTime()) / 1000;
-    if (sec < 3600) return '';
-    if (sec < 21600) return 'fresh-stale';
-    return 'fresh-old';
+    // TUCK v2.2 — tighter thresholds for market data
+    if (sec < 1200) return 'fresh-live';   // <20 min: green "live"
+    if (sec < 3600) return '';              // 20-60 min: neutral default
+    if (sec < 21600) return 'fresh-stale';  // 1-6h: yellow stale
+    return 'fresh-old';                     // >6h: red old
   }
   window.tuckTimeAgo = timeAgo;
   window.tuckFreshnessClass = freshnessClass;
@@ -1001,50 +1011,93 @@ const CLIENT_JS = `
   window.closeSheet = closeSheet;
 
   // ─── SPA route navigation ───
-  // Intercept <a data-route> clicks, swap page content via fetch
-  async function navigateTo(path) {
-    try {
-      const res = await fetch(path, { headers: { 'X-Tuck-Spa': '1' }});
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const html = await res.text();
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      const newMain = doc.querySelector('main');
-      const oldMain = $('main');
-      const newTitle = doc.querySelector('title')?.textContent;
-      const newBoot = doc.querySelector('#tuck-bootstrap')?.textContent;
-      if (newTitle) document.title = newTitle;
-      // Replace bootstrap data
-      const bootEl = $('#tuck-bootstrap');
-      if (bootEl && newBoot) bootEl.textContent = newBoot;
-      window.TUCK_BOOT = newBoot ? JSON.parse(newBoot) : {};
-      // Replace main
-      if (newMain && oldMain) {
-        const doSwap = () => {
-          oldMain.replaceWith(newMain);
-          // Update active states on nav
-          $$('.tab, .topnav a, .drawer-item').forEach(el => {
-            const href = (el.getAttribute('href') || '').split('?')[0];
-            if (!href || href === '#') return;
-            const matches = href === path || (href !== '/' && path.startsWith(href));
-            if (el.classList.contains('tab')) el.classList.toggle('tab-active', matches);
-            else el.classList.toggle('active', matches);
-          });
-          // Re-run page-specific init
-          window.dispatchEvent(new CustomEvent('tuck:route', { detail: { path }}));
-          window.scrollTo({ top: 0, behavior: 'instant' });
-        };
-        if (document.startViewTransition) {
-          await document.startViewTransition(doSwap).finished.catch(() => {});
-        } else {
-          doSwap();
-        }
-      } else {
-        window.location.href = path;
-      }
-    } catch (e) {
-      window.location.href = path;
-    }
+  // TUCK v2.1 — SPA navigation with route-CSS swap + cleanup lifecycle.
+  // Route cleanup registry — each page IIFE pushes teardown fns here
+  window.__tuckRouteCleanup = window.__tuckRouteCleanup || [];
+  function runRouteCleanup() {
+    const fns = window.__tuckRouteCleanup.slice();
+    window.__tuckRouteCleanup.length = 0;
+    fns.forEach(fn => { try { fn(); } catch(e) { console.warn('[tuck] cleanup err', e); }});
   }
+
+  async function navigateTo(path) {
+    // Build SPA URL with _spa=1 so cache keys are naturally distinct from full pages
+    const spaURL = path + (path.includes('?') ? '&' : '?') + '_spa=1';
+    let html;
+    try {
+      const res = await fetch(spaURL, { headers: { 'X-Tuck-Spa': '1' }});
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      html = await res.text();
+    } catch (e) {
+      console.warn('[tuck] SPA fetch failed, full-nav fallback', e);
+      window.location.href = path;
+      return false;
+    }
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const newMain = doc.querySelector('main');
+    const oldMain = $('main');
+    if (!newMain || !oldMain) {
+      console.warn('[tuck] SPA partial missing <main>, full-nav fallback');
+      window.location.href = path;
+      return false;
+    }
+
+    const newTitle = doc.querySelector('title')?.textContent;
+    if (newTitle) document.title = newTitle;
+
+    const newBoot = doc.querySelector('#tuck-bootstrap')?.textContent;
+    const bootEl = $('#tuck-bootstrap');
+    if (bootEl && newBoot) bootEl.textContent = newBoot;
+    try { window.TUCK_BOOT = newBoot ? JSON.parse(newBoot) : {}; } catch(e) { window.TUCK_BOOT = {}; }
+
+    // Route-scoped CSS — replace the slot (don't append, no accumulation)
+    const newRouteCSS = doc.querySelector('style[data-route-css]')?.textContent || '';
+    let routeCssEl = document.querySelector('style[data-route-css]');
+    if (!routeCssEl) {
+      routeCssEl = document.createElement('style');
+      routeCssEl.setAttribute('data-route-css', '');
+      document.head.appendChild(routeCssEl);
+    }
+    routeCssEl.textContent = newRouteCSS;
+
+    // Remove any previous route-tagged scripts before swap
+    document.querySelectorAll('script[data-route-js]').forEach(s => s.remove());
+
+    // Run prior-page cleanup
+    runRouteCleanup();
+
+    const doSwap = () => {
+      oldMain.replaceWith(newMain);
+      const matchPath = path.split('?')[0];
+      $$('.tab, .topnav a, .drawer-item').forEach(el => {
+        const href = (el.getAttribute('href') || '').split('?')[0];
+        if (!href || href === '#') return;
+        const matches = href === matchPath || (href !== '/' && matchPath.startsWith(href));
+        if (el.classList.contains('tab')) el.classList.toggle('tab-active', matches);
+        else el.classList.toggle('active', matches);
+      });
+      // Mount new route JS by re-creating the script tag so the browser executes it
+      const newJS = doc.querySelector('script[data-route-js]')?.textContent;
+      if (newJS) {
+        const s = document.createElement('script');
+        s.setAttribute('data-route-js', '');
+        s.textContent = newJS;
+        document.body.appendChild(s);
+      }
+      window.dispatchEvent(new CustomEvent('tuck:route', { detail: { path }}));
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    };
+
+    if (document.startViewTransition) {
+      try { await document.startViewTransition(doSwap).finished; } catch(e) { /* cancelled */ }
+    } else {
+      doSwap();
+    }
+    return true;
+  }
+
+  // Click handler — push history ONLY on confirmed swap success
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[data-route]');
     if (!a) return;
@@ -1054,10 +1107,10 @@ const CLIENT_JS = `
     e.preventDefault();
     closeDrawer();
     closeSheet();
-    const pathWithQuery = href;
-    history.pushState({}, '', pathWithQuery);
-    // Pass full path (with ?v=2) so server treats this as v2 SPA request
-    navigateTo(pathWithQuery);
+    navigateTo(href).then((swapped) => {
+      if (swapped) history.pushState({}, '', href);
+      // If not swapped, window.location.href already triggered full nav
+    });
   });
   window.addEventListener('popstate', () => {
     navigateTo(location.pathname + location.search);
@@ -1174,6 +1227,146 @@ const CLIENT_JS = `
 const TUCK_FAVICON = "/img/tuck/tuck-v5-128.png";
 const TUCK_OG_IMG  = "/img/tuck/tuck-v5-hero.png";
 
+// ── ASK TUCK WIDGET (injected into v2 shell) ──
+const ASK_TUCK_CSS = `#ask-tuck-btn{position:fixed;bottom:24px;right:24px;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);border:2px solid rgba(255,255,255,0.1);cursor:pointer;box-shadow:0 8px 24px rgba(34,197,94,0.35),0 2px 8px rgba(0,0,0,0.4);z-index:9998;display:flex;align-items:center;justify-content:center;transition:transform .2s,box-shadow .2s;padding:0}
+#ask-tuck-btn:hover{transform:scale(1.08);box-shadow:0 12px 32px rgba(34,197,94,0.5),0 4px 12px rgba(0,0,0,0.5)}
+#ask-tuck-btn img{width:48px;height:48px;image-rendering:pixelated;border-radius:50%}
+#ask-tuck-panel{position:fixed;bottom:100px;right:24px;width:380px;max-width:calc(100vw - 48px);height:520px;max-height:calc(100vh - 140px);background:#0f1729;border:1px solid rgba(255,255,255,0.08);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.6);z-index:9999;display:none;flex-direction:column;overflow:hidden}
+#ask-tuck-panel.open{display:flex}
+#ask-tuck-header{padding:14px 16px;background:linear-gradient(135deg,#1a2540,#0f1729);border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px}
+#ask-tuck-header img{width:32px;height:32px;image-rendering:pixelated;border-radius:50%}
+#ask-tuck-header .title{flex:1;font-weight:700;color:#f1f5f9;font-size:14px;line-height:1.2}
+#ask-tuck-header .sub{font-size:10px;color:#22c55e;font-weight:600;text-transform:uppercase;letter-spacing:0.05em}
+#ask-tuck-close{background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0 4px;line-height:1}
+#ask-tuck-close:hover{color:#f1f5f9}
+#ask-tuck-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.tuck-msg{padding:10px 12px;border-radius:12px;font-size:13px;line-height:1.5;max-width:85%;white-space:pre-wrap;word-wrap:break-word}
+.tuck-msg.user{background:#1e3a5f;color:#dbeafe;align-self:flex-end;border-bottom-right-radius:4px}
+.tuck-msg.tuck{background:#1a2540;color:#e2e8f0;align-self:flex-start;border-bottom-left-radius:4px;border-left:2px solid #22c55e}
+.tuck-msg.error{background:rgba(239,68,68,0.1);color:#fca5a5;align-self:flex-start;border-left:2px solid #ef4444}
+.tuck-msg.loading{color:#94a3b8;font-style:italic}
+#ask-tuck-input-wrap{padding:12px;border-top:1px solid rgba(255,255,255,0.06);display:flex;gap:8px;background:#0a1020}
+#ask-tuck-input{flex:1;background:#1a2540;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:9px 12px;color:#f1f5f9;font-size:13px;font-family:inherit;outline:none;resize:none;min-height:38px;max-height:100px}
+#ask-tuck-input:focus{border-color:#22c55e}
+#ask-tuck-send{background:#22c55e;border:none;border-radius:8px;color:#0a0e1a;font-weight:700;padding:0 14px;cursor:pointer;font-size:13px;transition:background .15s}
+#ask-tuck-send:hover{background:#16a34a}
+#ask-tuck-send:disabled{background:#475569;color:#94a3b8;cursor:not-allowed}
+#ask-tuck-disclaimer{font-size:9px;color:#64748b;padding:0 12px 8px;text-align:center;line-height:1.4}
+@media(max-width:480px){
+  #ask-tuck-panel{right:12px;left:12px;width:auto;bottom:90px}
+  #ask-tuck-btn{bottom:16px;right:16px;width:56px;height:56px}
+  #ask-tuck-btn img{width:40px;height:40px}
+}`;
+
+const ASK_TUCK_BLOCK = `<!-- ASK TUCK FLOATING WIDGET -->
+<button id="ask-tuck-btn" aria-label="Ask Tuck" title="Ask Tuck — free AI guide">
+  <img src="/img/tuck/tuck-v5-128.png" alt="Tuck"/>
+</button>
+<div id="ask-tuck-panel" role="dialog" aria-label="Ask Tuck chat">
+  <div id="ask-tuck-header">
+    <img src="/img/tuck/tuck-v5-128.png" alt=""/>
+    <div class="title">Ask Tuck<div class="sub">● Online · Free · No login</div></div>
+    <button id="ask-tuck-close" aria-label="Close chat">×</button>
+  </div>
+  <div id="ask-tuck-messages">
+    <div class="tuck-msg tuck">Peace, friend. I'm Tuck — guide to this little market sanctuary. Ask me anything about the tickers, the congressional trades, the news signals, or how any of it works. I won't tell you what to do with your money. But I'll help you understand what's on the page.</div>
+  </div>
+  <div id="ask-tuck-input-wrap">
+    <textarea id="ask-tuck-input" placeholder="Ask Tuck a question..." rows="1" maxlength="1000"></textarea>
+    <button id="ask-tuck-send">Send</button>
+  </div>
+  <div id="ask-tuck-disclaimer">Educational only. Not financial advice. Powered by Llama 3.3 on Cloudflare Workers AI.</div>
+</div>
+<script>
+(function(){
+  var btn = document.getElementById('ask-tuck-btn');
+  var panel = document.getElementById('ask-tuck-panel');
+  var closeBtn = document.getElementById('ask-tuck-close');
+  var input = document.getElementById('ask-tuck-input');
+  var sendBtn = document.getElementById('ask-tuck-send');
+  var messages = document.getElementById('ask-tuck-messages');
+  if(!btn || !panel) return;
+
+  function openPanel(){ panel.classList.add('open'); setTimeout(function(){ if(input) input.focus(); }, 100); }
+  function closePanel(){ panel.classList.remove('open'); }
+  btn.addEventListener('click', function(){
+    if(panel.classList.contains('open')) closePanel(); else openPanel();
+  });
+  if(closeBtn) closeBtn.addEventListener('click', closePanel);
+
+  function addMsg(text, cls){
+    var d = document.createElement('div');
+    d.className = 'tuck-msg ' + cls;
+    d.textContent = text;
+    messages.appendChild(d);
+    messages.scrollTop = messages.scrollHeight;
+    return d;
+  }
+
+  function send(){
+    var msg = input.value.trim();
+    if(!msg) return;
+    addMsg(msg, 'user');
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+    var loading = addMsg('Tuck is thinking...', 'tuck loading');
+
+    fetch('/api/ask-tuck', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ message: msg })
+    })
+    .then(function(r){ return r.json().then(function(j){ return {status: r.status, body: j}; }); })
+    .then(function(res){
+      loading.remove();
+      if(res.status === 200 && res.body.reply){
+        addMsg(res.body.reply, 'tuck');
+      } else {
+        addMsg(res.body.error || 'Something went wrong.', 'error');
+      }
+    })
+    .catch(function(){
+      loading.remove();
+      addMsg('Network issue. Try again.', 'error');
+    })
+    .finally(function(){
+      sendBtn.disabled = false;
+      if(input) input.focus();
+    });
+  }
+
+  if(sendBtn) sendBtn.addEventListener('click', send);
+  if(input){
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' && !e.shiftKey){
+        e.preventDefault();
+        send();
+      }
+    });
+    input.addEventListener('input', function(){
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+    });
+  }
+})();
+</script>
+<script>
+// Expose openAskTuck globally so the bottom tab can trigger it
+window.openAskTuck = function() {
+  var p = document.getElementById('ask-tuck-panel');
+  var btn = document.getElementById('ask-tuck-btn');
+  if (p && !p.classList.contains('open')) {
+    p.classList.add('open');
+    var inp = document.getElementById('ask-tuck-input');
+    if (inp) setTimeout(function(){ inp.focus(); }, 100);
+  }
+};
+</script>
+`;
+
+
+
 function renderShell({
   path = '/',
   title = 'Tuck — Free Financial Intelligence',
@@ -1182,15 +1375,18 @@ function renderShell({
   body = '',
   pageCSS = '',
   pageJS = '',
-  vFlag = true,
+  vFlag = false,
   spa = false,
 }) {
   // SPA partial response: return just the <main> + <title> + bootstrap
   if (spa) {
+    // TUCK v2.1 — SPA partial now includes <main> wrapper + route-scoped CSS slot + tagged JS
     return `<!doctype html><html><head><title>${esc(title)}</title>
 <script id="tuck-bootstrap" type="application/json">${jsonInline(bootstrap)}</script>
-${pageJS ? `<script>${pageJS}</script>` : ''}
-</head><body>${body}</body></html>`;
+<style data-route-css>${pageCSS || ''}</style>
+</head><body><main class="app" id="main-content">${body}</main>
+${pageJS ? `<script data-route-js>${pageJS}</script>` : ''}
+</body></html>`;
   }
 
   const bootJSON = jsonInline(bootstrap);
@@ -1226,6 +1422,7 @@ ${BASE_CSS}
 ${PRIMITIVES_CSS}
 ${CHROME_CSS}
 ${pageCSS}
+${ASK_TUCK_CSS}
 </style>
 </head>
 <body>
@@ -1238,6 +1435,7 @@ ${renderDrawer(path, { vFlag })}
 <script id="tuck-bootstrap" type="application/json">${bootJSON}</script>
 <script>${CLIENT_JS}</script>
 ${pageJS ? `<script>${pageJS}</script>` : ''}
+${ASK_TUCK_BLOCK}
 </body>
 </html>`;
 }
@@ -1450,7 +1648,7 @@ function renderPulseStrip(rows, cachedAt) {
     const cls = up ? 'pulse-up' : (dn ? 'pulse-dn' : 'pulse-flat');
     const priceTxt = hasPrice ? `$${Number(r.price).toFixed(2)}` : '—';
     const chgTxt = hasPrice ? `${Math.abs(chg).toFixed(2)}%` : '';
-    return `<a class="pulse-card ${cls}" href="/watchlist/${esc(r.ticker)}?v=2" data-route data-ticker="${esc(r.ticker)}" aria-label="${esc(r.ticker)} ${esc(r.name)} ${priceTxt}">
+    return `<a class="pulse-card ${cls}" href="/watchlist/${esc(r.ticker)}" data-route data-ticker="${esc(r.ticker)}" aria-label="${esc(r.ticker)} ${esc(r.name)} ${priceTxt}">
   <span class="pulse-ticker">${esc(r.ticker)}</span>
   <span class="pulse-price">${priceTxt}</span>
   <span class="pulse-chg">${chgTxt ? arrow : ''}${chgTxt}</span>
@@ -1500,7 +1698,7 @@ function renderFeatureGrid(boot) {
   ];
 
   const cards = items.map(i => `
-<a class="feat-card card card-interactive" href="${i.route}?v=2" data-route aria-label="${esc(i.title)}">
+<a class="feat-card card card-interactive" href="${i.route}" data-route aria-label="${esc(i.title)}">
   <div class="feat-card-top">
     <span class="feat-icon">${icon(i.icon)}</span>
     <span class="pill pill-${i.pill}">${i.badge}</span>
@@ -1515,9 +1713,9 @@ function renderFeatureGrid(boot) {
   <h2 class="section-h2">Explore</h2>
   <div class="feat-grid">${cards}</div>
   <div class="feat-grid-extras">
-    <a class="feat-extra" href="/macro?v=2" data-route>${icon('macro')}<span>Macro Corner</span></a>
-    <a class="feat-extra" href="/learn?v=2" data-route>${icon('learn')}<span>Learn</span></a>
-    <a class="feat-extra" href="/about?v=2" data-route>${icon('about')}<span>About</span></a>
+    <a class="feat-extra" href="/macro" data-route>${icon('macro')}<span>Macro Corner</span></a>
+    <a class="feat-extra" href="/learn" data-route>${icon('learn')}<span>Learn</span></a>
+    <a class="feat-extra" href="/about" data-route>${icon('about')}<span>About</span></a>
   </div>
 </section>`;
 }
@@ -1783,7 +1981,7 @@ function renderListPage({ quotes, scoresByTicker, prices, spa }) {
     const scoreHTML = score
       ? `<span class="score-badge ${scoreCls}">${score.total_score}</span>`
       : `<span class="score-badge score-cold">—</span>`;
-    return `<a class="wl-row card card-interactive wl-${dir}" href="/watchlist/${esc(w.ticker)}?v=2" data-route>
+    return `<a class="wl-row card card-interactive wl-${dir}" href="/watchlist/${esc(w.ticker)}" data-route>
       <div class="wl-ticker">
         <div class="wl-tick">${esc(w.ticker)}</div>
         <div class="wl-name">${esc(w.name)}</div>
@@ -1838,7 +2036,7 @@ async function renderTickerPage({ env, ticker, quotes, scoresByTicker, prices, s
 <header class="shdr">
   <div class="shdr-row">
     <h1 class="shdr-title">
-      <a class="topbar-btn" href="/watchlist?v=2" data-route aria-label="Back">${icon('back')}</a>
+      <a class="topbar-btn" href="/watchlist" data-route aria-label="Back">${icon('back')}</a>
       <span>${esc(ticker)}</span>
     </h1>
     <button class="topbar-btn" onclick="tuckShare({title:'${esc(ticker)} · Tuck',url:location.href})" aria-label="Share">${icon('share')}</button>
@@ -1881,10 +2079,10 @@ ${sectorExp ? `<section class="card">
 <section class="card">
   <h2 class="card-title">${icon('scores')}<span>Deeper analysis</span></h2>
   <div class="tk-links">
-    <a class="tk-link" href="/scores?v=2#${esc(ticker)}" data-route>${icon('scores')}<span>Score breakdown</span>${icon('chevron_right')}</a>
-    <a class="tk-link" href="/scanner?v=2&ticker=${esc(ticker)}" data-route>${icon('scanner')}<span>News mentions</span>${icon('chevron_right')}</a>
-    <a class="tk-link" href="/congress?v=2&ticker=${esc(ticker)}" data-route>${icon('congress')}<span>Congress trades</span>${icon('chevron_right')}</a>
-    <a class="tk-link" href="/scenarios?v=2&ticker=${esc(ticker)}" data-route>${icon('scenarios')}<span>AI scenarios</span>${icon('chevron_right')}</a>
+    <a class="tk-link" href="/scores#${esc(ticker)}" data-route>${icon('scores')}<span>Score breakdown</span>${icon('chevron_right')}</a>
+    <a class="tk-link" href="/scanner?ticker=${esc(ticker)}" data-route>${icon('scanner')}<span>News mentions</span>${icon('chevron_right')}</a>
+    <a class="tk-link" href="/congress?ticker=${esc(ticker)}" data-route>${icon('congress')}<span>Congress trades</span>${icon('chevron_right')}</a>
+    <a class="tk-link" href="/scenarios?ticker=${esc(ticker)}" data-route>${icon('scenarios')}<span>AI scenarios</span>${icon('chevron_right')}</a>
   </div>
 </section>
 `;
@@ -2028,7 +2226,7 @@ async function scannerRoute({ env, url, spa = false }) {
 
 ${tickerFilter ? `<div class="card scn-filter-info">
   <div>Showing only signals tagged <strong>${esc(tickerFilter)}</strong></div>
-  <a href="/scanner?v=2" data-route class="btn btn-sm">Clear filter</a>
+  <a href="/scanner" data-route class="btn btn-sm">Clear filter</a>
 </div>` : ''}
 
 <section class="card scanner-legend">
@@ -2093,7 +2291,7 @@ function renderSignal(s) {
   const sentiment = (s.sentiment || '').toLowerCase();
   const cls = sentiment === 'escalation' ? 'sig-esc' : (sentiment === 'de-escalation' ? 'sig-deesc' : 'sig-neutral');
   const tickers = (s.related_tickers || '').split(/[\s,]+/).filter(Boolean);
-  const tickerPills = tickers.slice(0, 4).map(t => `<a href="/watchlist/${esc(t)}?v=2" data-route class="sig-ticker-pill" onclick="event.stopPropagation()">${esc(t)}</a>`).join('');
+  const tickerPills = tickers.slice(0, 4).map(t => `<a href="/watchlist/${esc(t)}" data-route class="sig-ticker-pill" onclick="event.stopPropagation()">${esc(t)}</a>`).join('');
   const headline = s.headline || s.full_text || '';
   const _d = safeDate(s.published_at); const ageISO = _d ? _d.toISOString() : null;
   return `<button class="sig-row card card-interactive ${cls}" onclick='openSignalSheet(${JSON.stringify(JSON.stringify(s)).slice(1,-1)})' aria-label="${esc(headline.slice(0,80))}">
@@ -2198,7 +2396,7 @@ window.openSignalSheet = function(jsonStr) {
     </div>
     \${tickers.length ? \`<h3 style="margin-top:var(--sp-4);font-size:var(--tx-md);">Related tickers</h3>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        \${tickers.map(t => '<a href="/watchlist/' + t + '?v=2" data-route class="sig-ticker-pill" style="height:32px;padding:0 12px;font-size:13px;">' + t + '</a>').join('')}
+        \${tickers.map(t => '<a href="/watchlist/' + t + '" data-route class="sig-ticker-pill" style="height:32px;padding:0 12px;font-size:13px;">' + t + '</a>').join('')}
       </div>\` : ''}
     \${s.url ? \`<a href="\${s.url}" target="_blank" rel="noopener" class="btn" style="margin-top:var(--sp-4);width:100%;">Read source →</a>\` : ''}
   \`;
@@ -2431,7 +2629,7 @@ async function congressRoute({ env, url, spa = false }) {
 
 ${tickerFilter ? `<div class="card scn-filter-info">
   <div>Showing trades of <strong>${esc(tickerFilter)}</strong> only</div>
-  <a href="/congress?v=2" data-route class="btn btn-sm">Clear filter</a>
+  <a href="/congress" data-route class="btn btn-sm">Clear filter</a>
 </div>` : ''}
 `;
 
@@ -2547,7 +2745,7 @@ window.openTradeSheet = function(jsonStr) {
       \${t.transaction_date ? '<div class="score-comp"><span class="score-comp-k">Trade Date</span><span class="score-comp-v" style="font-size:var(--tx-sm)">' + (t.transaction_date) + '</span></div>' : ''}
       \${t.disclosure_date ? '<div class="score-comp"><span class="score-comp-k">Disclosed</span><span class="score-comp-v" style="font-size:var(--tx-sm)">' + (t.disclosure_date) + '</span></div>' : ''}
     </div>
-    \${t.ticker ? \`<a href="/watchlist/\${t.ticker}?v=2" data-route class="btn btn-primary" style="margin-top:var(--sp-4);width:100%;">View \${t.ticker} →</a>\` : ''}
+    \${t.ticker ? \`<a href="/watchlist/\${t.ticker}" data-route class="btn btn-primary" style="margin-top:var(--sp-4);width:100%;">View \${t.ticker} →</a>\` : ''}
     <p style="font-size:var(--tx-xs);color:var(--fg-faint);margin-top:var(--sp-4);">Source: STOCK Act public disclosures · House/Senate filings</p>
   \`;
   window.openSheet({ title: 'Trade detail', html });
@@ -2877,7 +3075,7 @@ function renderCell(t) {
   const m = t.momentum_5d ?? 0;
   const cls = momentumClass(m);
   const chgPct = t.change_pct ?? 0;
-  return `<a class="heat-cell ${cls}" href="/watchlist/${esc(t.ticker)}?v=2" data-route aria-label="${esc(t.ticker)} ${m >= 0 ? '+' : ''}${m.toFixed(1)}%">
+  return `<a class="heat-cell ${cls}" href="/watchlist/${esc(t.ticker)}" data-route aria-label="${esc(t.ticker)} ${m >= 0 ? '+' : ''}${m.toFixed(1)}%">
     <span class="heat-cell-ticker">${esc(t.ticker)}</span>
     <span class="heat-cell-mom">${m >= 0 ? '+' : ''}${m.toFixed(1)}%</span>
     <span class="heat-cell-price">$${Number(t.price||0).toFixed(0)}</span>
@@ -3013,14 +3211,14 @@ async function scenariosRoute({ env, url, spa = false }) {
 
 function renderScenario(s) {
   const tickers = (s.affected_tickers || '').split(/[\s,]+/).filter(Boolean);
-  const conf = Number(s.confidence || 0);
-  const confPct = Math.round(conf * 100);
+  const confPct = __confPct(s.confidence);
+  const confLbl = __confLabel(s.confidence);
   const direction = (s.market_direction || '').toLowerCase();
   const dirCls = direction.includes('bull') ? 'dir-bull' : (direction.includes('bear') ? 'dir-bear' : 'dir-neutral');
   return `<button class="scn-card card card-interactive" onclick='openScenarioSheet(${JSON.stringify(JSON.stringify(s)).slice(1,-1)})' aria-label="${esc(s.title||'')}">
     <div class="scn-top">
       <span class="scn-direction ${dirCls}">${esc(direction || 'mixed')}</span>
-      <span class="scn-conf">${confPct}% confidence</span>
+      <span class="scn-conf">${confPct!=null?confLbl+' \u00b7 '+confPct+'%':'—'} confidence</span>
     </div>
     <h3 class="scn-title">${esc(s.title || '')}</h3>
     <p class="scn-thesis">${esc((s.thesis || '').slice(0, 220))}</p>
@@ -3074,15 +3272,15 @@ window.openScenarioSheet = function(jsonStr) {
   let s;
   try { s = JSON.parse(jsonStr); } catch(e) { return; }
   const tickers = (s.affected_tickers || '').split(/[\\s,]+/).filter(Boolean);
-  const conf = Number(s.confidence || 0);
-  const confPct = Math.round(conf * 100);
+  const confPct = __confPct(s.confidence);
+  const confLbl = __confLabel(s.confidence);
   const direction = (s.market_direction || 'mixed').toLowerCase();
   const dirCls = direction.includes('bull') ? 'dir-bull' : direction.includes('bear') ? 'dir-bear' : 'dir-neutral';
   const ts = s.generated_at ? new Date(typeof s.generated_at==='string' ? s.generated_at : s.generated_at*1000) : null;
   const html = \`
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:var(--sp-3);">
       <span class="scn-direction \${dirCls}">\${direction}</span>
-      <span class="pill">\${confPct}% confidence</span>
+      <span class="pill">\${confPct!=null?confLbl+' \u00b7 '+confPct+'%':'—'} confidence</span>
       \${ts ? \`<span class="pill">\${ts.toLocaleDateString()}</span>\` : ''}
     </div>
     <h3 style="font-size:var(--tx-lg);font-weight:800;margin-bottom:var(--sp-2);line-height:var(--lh-tight);">\${s.title || ''}</h3>
@@ -3091,7 +3289,7 @@ window.openScenarioSheet = function(jsonStr) {
     \${s.invalidation ? \`<h3>What would invalidate this</h3><p style="color:var(--fg-dim);line-height:var(--lh-relaxed);font-size:var(--tx-sm);">\${s.invalidation}</p>\` : ''}
     \${tickers.length ? \`<h3>Affected tickers</h3>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        \${tickers.map(t => '<a href="/watchlist/' + t + '?v=2" data-route class="sig-ticker-pill" style="height:32px;padding:0 12px;font-size:13px;">' + t + '</a>').join('')}
+        \${tickers.map(t => '<a href="/watchlist/' + t + '" data-route class="sig-ticker-pill" style="height:32px;padding:0 12px;font-size:13px;">' + t + '</a>').join('')}
       </div>\` : ''}
     <p style="font-size:var(--tx-xs);color:var(--fg-faint);margin-top:var(--sp-4);">Generated by AI synthesis of public news. Educational only — not investment advice.</p>
   \`;
@@ -3366,10 +3564,33 @@ async function aboutRoute({ env, url, spa = false }) {
   <p class="about-p">If Tuck has helped you, <a href="https://vpdlny.org" target="_blank" rel="noopener">visit us at vpdlny.org</a>.</p>
 </section>
 
+<section class="card" style="border:1px solid rgba(247,147,26,0.32);background:linear-gradient(180deg,rgba(247,147,26,0.07),rgba(247,147,26,0.02));">
+  <h2 class="card-title" style="color:#f7931a;">${icon('about')}<span>Support Tuck — Anonymous Bitcoin Only</span></h2>
+  <p class="about-p">We will <strong>never</strong> monetize you. No ads, no data sales, no sponsors, no corporate money. Here's why that matters: anyone who openly takes money from a business is influenced by it — whether they admit it or not. The only way to stay truly independent and pure is to answer to <strong>no one but the people we serve</strong>.</p>
+  <p class="about-p">So we accept just one thing: <strong>anonymous, universal Bitcoin donations</strong> — only from those who can spare it. No Stripe, no Patreon, no processor that can deplatform us or profile our donors. Bitcoin is borderless, permissionless, and final. It's the only money that lets us stay free.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;background:rgba(0,0,0,0.28);padding:18px;border-radius:12px;margin-top:8px;">
+    <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" title="Open in your Bitcoin wallet" style="width:148px;height:148px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;padding:8px;flex-shrink:0;text-decoration:none;"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAagAAAGoAQAAAAA7yUxtAAADtElEQVR4nO1c2W4cMQwji/n/X2YfdCZ9KQK09miVY3bWayIRBNkUJQ+FH3z9+gloUYv6ONQD0O4EiqIAEHatYVCgcub9dk1FPQAEALRXUSDMN/JX+mDNvN+uqagHCF9RACH7gUB3EUHBHeZevd+uqainv3FvmeMg2OIYl8ZM7rdrKqr7ixBECRlLubmB6kTyfrumoh6gRQ4FEZATD9LWQcLDLGbeb9dUFDJu9BffAbnfrqmo51t02c7FIBZ9vBz2ArumoqBwg1SvNVa3qHkbX8dQkQer6LylyMgEWS2Blt3eb9dUFJUcUEzP+CeMlFmMj+33frsmoyRktiUwhSgAJEWJMncB5t132DURFfGlUguBLythXnPaxtdZlIzMQxAp2jIoKNY/XyPtIu3+dRAVapNnxnJtN4NMyM8z8ja+zqFyV3I/FbGwlc8cxRTu9d//w0V9Q9nOFXUUAAIb94gUTKQkcuspJ1FeiowFsHKtHLT48sqXL5H32zUaRYn0MKOHFQELpogvWlFFG18nUa4fZnKM4oKC3HuRe1EuIt5v11RUZcFBDKms/zs5dL6BnPICu6aiGDQ+b2009jUkj0dr4bjfrqmoph9CfwwV2Y/5Rjjut2sqigoNt/FBAF2G+uLHja87UAxxUH0k2tqsKcA44/LDw6ioJluzISETCUPcQK6LzhrfYtdEFKMF1L70/X3IiOwDL7BrKorVb+3th65oqNEM5dTVDw+jrP8w9yZVa6glYC5zRI+AL5332zUZZVtU1lQAkJFIe2EsWn+FrX8dRVkBUumX9s75RWuQ8mrl9kedRVFxpCGkXpqf6IwwEjO5KPwSuyaisnTM3LP6UB0kYru+wK6pqH4EJbtswnfZjJju2v75w6jWJcryR1Uo1SVf75BafngO9bS+mqYlwrs2vhwqCm++wa6pqBRx6aHTQssmuLYRq+XWK0+jXNOAqYeCpV/eDUA7wddaFA/8h4vqKG9+cmEjmkVDehKNxTPXxtXnD6LyrHIXoJC8sNPCWiBfYNdUVDYBJJkwnTA2K+/5LYF+96+jqDxf2Q99RcchUSQjRnb/Oopq55dNHMwzlf0St97pu/rhMVR7vk09uiH2MiuE0QMv6svLNw6i2vNtqvGaqKfb+O5lzaNwkni/XR+CUvRg57MC7MYKlVlleZ1dM1FZ4rJKcpRYaCRReerobXZNQylOMMMapCBQcnmX0UfvrH/5/ElUFLjyQF6ULbPjJk4SdSJyv11TUaW5//u/tahFfRrqNx3fXuehZ/6tAAAAAElFTkSuQmCC" alt="Tuck Bitcoin donation QR — scan to donate" style="width:100%;height:100%;image-rendering:pixelated;"/></a>
+    <div style="flex:1;min-width:240px;">
+      <div style="font-size:11px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Tuck Donation Address (BTC)</div>
+      <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" title="Open in wallet" style="display:block;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:13px;color:#f7931a;word-break:break-all;background:rgba(247,147,26,0.09);padding:11px 12px;border-radius:8px;margin-bottom:12px;text-decoration:none;user-select:all;">bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02</a>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button onclick="navigator.clipboard.writeText('bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02');if(window.tuckToast)tuckToast('Bitcoin address copied');" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">Copy Address</button>
+        <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" style="background:transparent;color:#f7931a;border:1px solid #f7931a;padding:8px 17px;border-radius:9px;font-weight:600;font-size:13px;text-decoration:none;display:inline-block;">Open in Wallet</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="card">
   <h2 class="card-title">${icon('share')}<span>Share Tuck</span></h2>
-  <div class="about-share">
-    <button class="btn btn-primary" onclick="tuckShare({title:'Tuck — Free Financial Intelligence',text:'Free, no-login, no-ads financial intelligence. Real-time market data, congressional trades, OSINT.',url:'https://tuck.osintnet.uk/'})">${icon('share')}<span>Share Tuck</span></button>
+  <p class="about-p" style="margin-bottom:14px;">Tuck only grows by word of mouth. If it helped you, pass it to someone who needs it.</p>
+  <div class="about-share" style="display:flex;flex-wrap:wrap;gap:10px;">
+    <button class="btn btn-primary" onclick="tuckShare({title:'Tuck — Free Financial Intelligence',text:'Free, no-login, no-ads financial intelligence — real-time market data, congressional trades & OSINT. Built by VPDLNY for everyone Wall Street ignores.',url:'https://tuck.osintnet.uk/'})">${icon('share')}<span>Share</span></button>
+    <a class="btn btn-secondary" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=Free,%20no-login,%20no-ads%20financial%20intelligence%20—%20real-time%20market%20data,%20congressional%20trades%20&%20OS&url=https://tuck.osintnet.uk/">X / Twitter</a>
+    <a class="btn btn-secondary" target="_blank" rel="noopener" href="https://www.reddit.com/submit?url=https://tuck.osintnet.uk/&title=Tuck%20%E2%80%94%20Free%20OSINT%20Financial%20Intelligence">Reddit</a>
+    <a class="btn btn-secondary" target="_blank" rel="noopener" href="https://t.me/share/url?url=https://tuck.osintnet.uk/&text=Free%20financial%20intelligence%20for%20everyone">Telegram</a>
+    <a class="btn btn-secondary" target="_blank" rel="noopener" href="https://wa.me/?text=Free%20financial%20intelligence%20%E2%80%94%20https://tuck.osintnet.uk/">WhatsApp</a>
+    <button class="btn btn-secondary" onclick="navigator.clipboard.writeText('https://tuck.osintnet.uk/');if(window.tuckToast)tuckToast('Link copied');">Copy Link</button>
   </div>
 </section>
 
@@ -3427,7 +3648,8 @@ const ABOUT_CSS = `
 async function routeV2(request, env, ctx) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '') || '/';
-  const spa = request.headers.get('X-Tuck-Spa') === '1';
+  // TUCK v2.1 — accept _spa=1 URL param OR X-Tuck-Spa header (URL param makes cache keys distinct)
+  const spa = request.headers.get('X-Tuck-Spa') === '1' || url.searchParams.get('_spa') === '1';
 
   // Static asset / data routes are NOT v2-handled — let main worker handle them
   if (path.startsWith('/api/') || path.startsWith('/static/')) return null;
@@ -3455,10 +3677,10 @@ async function routeV2(request, env, ctx) {
  */
 function isV2Request(request) {
   const url = new URL(request.url);
-  if (url.searchParams.get('v') === '2') return true;
-  // SPA client-side router sends X-Tuck-Spa:1 — treat as v2
-  if (request.headers && request.headers.get('X-Tuck-Spa') === '1') return true;
-  return false;
+  // PROMOTED TO DEFAULT (May 23, 2026): v2 is the canonical Tuck experience.
+  // Explicit ?v=1 opts out to legacy v1 (for emergency fallback).
+  if (url.searchParams.get('v') === '1') return false;
+  return true;
 }
 
 // ── TUCK v2 HOST ADAPTER ─────────────────────────────────
@@ -6575,12 +6797,12 @@ var ABOUT_HTML = buildLegalPage("About", `
     To remain truly sovereign, we only accept <strong>anonymous, universal Bitcoin donations — from only those who can afford it, of course</strong>. No Stripe, no Patreon, no Cash App, no payment processors who can deplatform us or build profiles on our donors. Bitcoin is borderless, permissionless, and final — the only money that lets us stay free.
   </p>
   <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;background:rgba(0,0,0,0.3);padding:18px;border-radius:10px">
-    <div style="width:140px;height:140px;border-radius:8px;background:white;display:flex;align-items:center;justify-content:center;color:#000;font-size:10px;text-align:center;padding:8px;flex-shrink:0">[Configure your<br/>own BTC<br/>donation QR<br/>here]</div>
+    <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" title="Open in your Bitcoin wallet" style="width:140px;height:140px;border-radius:8px;background:white;display:flex;align-items:center;justify-content:center;padding:8px;flex-shrink:0;text-decoration:none"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAagAAAGoAQAAAAA7yUxtAAADtElEQVR4nO1c2W4cMQwji/n/X2YfdCZ9KQK09miVY3bWayIRBNkUJQ+FH3z9+gloUYv6ONQD0O4EiqIAEHatYVCgcub9dk1FPQAEALRXUSDMN/JX+mDNvN+uqagHCF9RACH7gUB3EUHBHeZevd+uqainv3FvmeMg2OIYl8ZM7rdrKqr7ixBECRlLubmB6kTyfrumoh6gRQ4FEZATD9LWQcLDLGbeb9dUFDJu9BffAbnfrqmo51t02c7FIBZ9vBz2ArumoqBwg1SvNVa3qHkbX8dQkQer6LylyMgEWS2Blt3eb9dUFJUcUEzP+CeMlFmMj+33frsmoyRktiUwhSgAJEWJMncB5t132DURFfGlUguBLythXnPaxtdZlIzMQxAp2jIoKNY/XyPtIu3+dRAVapNnxnJtN4NMyM8z8ja+zqFyV3I/FbGwlc8cxRTu9d//w0V9Q9nOFXUUAAIb94gUTKQkcuspJ1FeiowFsHKtHLT48sqXL5H32zUaRYn0MKOHFQELpogvWlFFG18nUa4fZnKM4oKC3HuRe1EuIt5v11RUZcFBDKms/zs5dL6BnPICu6aiGDQ+b2009jUkj0dr4bjfrqmoph9CfwwV2Y/5Rjjut2sqigoNt/FBAF2G+uLHja87UAxxUH0k2tqsKcA44/LDw6ioJluzISETCUPcQK6LzhrfYtdEFKMF1L70/X3IiOwDL7BrKorVb+3th65oqNEM5dTVDw+jrP8w9yZVa6glYC5zRI+AL5332zUZZVtU1lQAkJFIe2EsWn+FrX8dRVkBUumX9s75RWuQ8mrl9kedRVFxpCGkXpqf6IwwEjO5KPwSuyaisnTM3LP6UB0kYru+wK6pqH4EJbtswnfZjJju2v75w6jWJcryR1Uo1SVf75BafngO9bS+mqYlwrs2vhwqCm++wa6pqBRx6aHTQssmuLYRq+XWK0+jXNOAqYeCpV/eDUA7wddaFA/8h4vqKG9+cmEjmkVDehKNxTPXxtXnD6LyrHIXoJC8sNPCWiBfYNdUVDYBJJkwnTA2K+/5LYF+96+jqDxf2Q99RcchUSQjRnb/Oopq55dNHMwzlf0St97pu/rhMVR7vk09uiH2MiuE0QMv6svLNw6i2vNtqvGaqKfb+O5lzaNwkni/XR+CUvRg57MC7MYKlVlleZ1dM1FZ4rJKcpRYaCRReerobXZNQylOMMMapCBQcnmX0UfvrH/5/ElUFLjyQF6ULbPjJk4SdSJyv11TUaW5//u/tahFfRrqNx3fXuehZ/6tAAAAAElFTkSuQmCC" alt="Tuck Bitcoin donation QR" style="width:100%;height:100%;image-rendering:pixelated"/></a>
     <div style="flex:1;min-width:240px">
       <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Donation Address</div>
-      <div id="btc-addr" style="font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:13px;color:#f7931a;word-break:break-all;background:rgba(247,147,26,0.08);padding:10px 12px;border-radius:6px;margin-bottom:10px;user-select:all">YOUR_BTC_DONATION_ADDRESS_HERE</div>
-      <button onclick="(function(){navigator.clipboard.writeText('YOUR_BTC_DONATION_ADDRESS_HERE');var b=event.target;var t=b.textContent;b.textContent='✓ Copied';b.style.background='#10b981';setTimeout(function(){b.textContent=t;b.style.background='';},2000);})()" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Copy Address</button>
-      <a href="bitcoin:YOUR_BTC_DONATION_ADDRESS_HERE" style="display:inline-block;margin-left:8px;background:transparent;color:#f7931a;border:1px solid #f7931a;padding:8px 17px;border-radius:8px;font-weight:600;font-size:13px;text-decoration:none">Open in Wallet</a>
+      <div id="btc-addr" style="font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:13px;color:#f7931a;word-break:break-all;background:rgba(247,147,26,0.08);padding:10px 12px;border-radius:6px;margin-bottom:10px;user-select:all"><a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" style="color:#f7931a;text-decoration:none" title="Open in wallet">bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02</a></div>
+      <button onclick="(function(){navigator.clipboard.writeText('bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02');var b=event.target;var t=b.textContent;b.textContent='✓ Copied';b.style.background='#10b981';setTimeout(function(){b.textContent=t;b.style.background='';},2000);})()" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Copy Address</button>
+      <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" style="display:inline-block;margin-left:8px;background:transparent;color:#f7931a;border:1px solid #f7931a;padding:8px 17px;border-radius:8px;font-weight:600;font-size:13px;text-decoration:none">Open in Wallet</a>
     </div>
   </div>
   <p style="color:#64748b;font-size:12px;margin-top:14px;text-align:center;font-style:italic">
@@ -6601,11 +6823,32 @@ var worker_default = {
       url.hostname = "tuck.osintnet.uk";
       return Response.redirect(url.toString(), 301);
     }
-    // ─── TUCK v2 STAGING (?v=2) ──────────────────────────────
+    // ─── TUCK v2 STAGING () ──────────────────────────────
     if (TuckV2.isV2(request) && !path.startsWith('/api/') && !path.startsWith('/img/') && !path.startsWith('/static/')) {
       try {
         const v2Resp = await TuckV2.route(request, env, ctx);
-        if (v2Resp) return v2Resp;
+        if (v2Resp) {
+          // HARDENED: inject security headers into TuckV2 HTML responses
+          const ct = v2Resp.headers.get("content-type") || "";
+          if (ct.startsWith("text/html")) {
+            const h = new Headers(v2Resp.headers);
+            h.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+            h.set("X-Content-Type-Options", "nosniff");
+            h.set("X-Frame-Options", "DENY");
+            h.set("Referrer-Policy", "strict-origin-when-cross-origin");
+            h.set("Permissions-Policy", "geolocation=(), microphone=(), camera=(), payment=()");
+            // TUCK v2.1 — Vary so caches never confuse partial vs full
+            h.set("Vary", "X-Tuck-Spa");
+            // SPA partials get private cache (per-browser, short TTL)
+            const _reqURL = new URL(request.url);
+            const _isSpa = request.headers.get('X-Tuck-Spa') === '1' || _reqURL.searchParams.get('_spa') === '1';
+            if (_isSpa) {
+              h.set("Cache-Control", "private, max-age=30");
+            }
+            return new Response(v2Resp.body, { status: v2Resp.status, headers: h });
+          }
+          return v2Resp;
+        }
       } catch(e) {
         console.error('[tuck-v2] route error', e?.stack || e);
       }
@@ -6620,6 +6863,10 @@ var worker_default = {
     // Fixes Firefox OpaqueResponseBlocking on R2 cross-origin loads
     if (path.startsWith("/img/")) {
       const r2Key = path.slice(5); // strip "/img/"
+      // HARDENED: validate key — only safe chars, no traversal, length-bounded
+      if (!r2Key || r2Key.length > 256 || r2Key.includes("..") || !/^[A-Za-z0-9/_.\-]+$/.test(r2Key)) {
+        return new Response("Not found", { status: 404 });
+      }
       try {
         const r2Res = await fetch("https://assets.warheatmap.app/" + r2Key);
         if (!r2Res.ok) return new Response("Not found", { status: 404 });
@@ -6639,73 +6886,365 @@ var worker_default = {
       }
     }
     if (path === "/api/ask-tuck" && request.method === "POST") {
+      // ─── ASK TUCK v2 (May 27 2026): TOOL-USING with live D1 + cache queries ───
+      // Tuck can now actually READ the data instead of just describing it.
+      // Architecture: regex pre-router catches obvious patterns → forces correct tool.
+      // Fallback: Llama 3.3 70B with tool-call schema picks tool itself.
+      // Then: Llama composes plain-English answer from tool results.
+      const ASK_TUCK_CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": (() => {
+          const o = request.headers.get("Origin") || "";
+          return (o === "https://tuck.osintnet.uk" || o === "https://market.osintnet.uk") ? o : "https://tuck.osintnet.uk";
+        })(),
+        "Vary": "Origin"
+      };
       try {
+        const cl = parseInt(request.headers.get("Content-Length") || "0", 10);
+        if (cl > 4096) {
+          return new Response(JSON.stringify({ error: "Message too large." }), { status: 413, headers: ASK_TUCK_CORS });
+        }
+        let reqBody;
+        try { reqBody = await request.json(); }
+        catch { return new Response(JSON.stringify({ error: "Invalid request." }), { status: 400, headers: ASK_TUCK_CORS }); }
+        const userMsg = (reqBody && reqBody.message || "").toString().slice(0, 1000);
+        if (!userMsg.trim()) {
+          return new Response(JSON.stringify({ error: "Ask Tuck something." }), { status: 400, headers: ASK_TUCK_CORS });
+        }
         const ip = request.headers.get("CF-Connecting-IP") || "unknown";
         const rlKey = "rl:" + ip + ":" + Math.floor(Date.now() / 60000);
         const rlCount = parseInt((await env.TUCK_KV.get(rlKey)) || "0", 10);
         if (rlCount >= 10) {
           return new Response(JSON.stringify({ error: "Slow down friend. Tuck only handles 10 questions per minute per visitor." }), {
-            status: 429, headers: { "Content-Type": "application/json" }
+            status: 429, headers: ASK_TUCK_CORS
           });
         }
         await env.TUCK_KV.put(rlKey, String(rlCount + 1), { expirationTtl: 120 });
 
-        const reqBody = await request.json();
-        const userMsg = (reqBody.message || "").toString().slice(0, 1000);
-        if (!userMsg.trim()) {
-          return new Response(JSON.stringify({ error: "Ask Tuck something." }), { status: 400, headers: { "Content-Type": "application/json" } });
+        // ─── TOOL IMPLEMENTATIONS ──────────────────────────────────────────────
+        // All tools return { ok: true, ... } or { ok: false, error: "..." }
+        // Each tool is bounded: max rows, max chars in summaries, parallel-safe.
+        const TICKER_LIST = ["NVDA","NET","AVGO","QCOM","MU","INTC","MP","XLE","USO","KTOS","SOXX","QQQ"];
+
+        async function tool_query_congress(args) {
+          try {
+            if (!env.TRADEDESK_DB) return { ok: false, error: "trades db unavailable" };
+            const ticker = (args.ticker || "").toUpperCase().slice(0,5);
+            const member = (args.member || "").slice(0,80);
+            const txType = (args.transaction_type || "").slice(0,40);
+            const days = Math.min(parseInt(args.days || "365",10), 1825);
+            const limit = Math.min(parseInt(args.limit || "20",10), 50);
+            const dateCutoff = new Date(Date.now() - days*86400000).toISOString().slice(0,10);
+            const where = [`date >= '${dateCutoff}'`, "ticker IS NOT NULL", "ticker != ''"];
+            const binds = [];
+            if (ticker) { where.push("ticker = ?"); binds.push(ticker); }
+            if (txType) { where.push("LOWER(transaction_type) LIKE ?"); binds.push("%"+txType.toLowerCase()+"%"); }
+            // House and Senate share same WHERE binds, then member name (if any) is chamber-specific column
+            const baseWhere = where.join(" AND ");
+            const memberLike = member ? "%"+member.toLowerCase()+"%" : null;
+            const memberClauseH = memberLike ? " AND LOWER(representative) LIKE ?" : "";
+            const memberClauseS = memberLike ? " AND LOWER(senator) LIKE ?" : "";
+            const sql =
+              "SELECT * FROM (" +
+              "  SELECT representative AS member, 'House' AS chamber, date, ticker, transaction_type, range_text, amount " +
+              "  FROM qq_house WHERE " + baseWhere + memberClauseH +
+              "  UNION ALL " +
+              "  SELECT senator AS member, 'Senate' AS chamber, date, ticker, transaction_type, range_text, amount " +
+              "  FROM qq_senate WHERE " + baseWhere + memberClauseS +
+              ") ORDER BY date DESC LIMIT ?";
+            // Bind order: (base binds for house) + (member for house if any) + (base binds for senate) + (member for senate if any) + limit
+            const fullBinds = [];
+            fullBinds.push(...binds);
+            if (memberLike) fullBinds.push(memberLike);
+            fullBinds.push(...binds);
+            if (memberLike) fullBinds.push(memberLike);
+            fullBinds.push(limit);
+            const q = await env.TRADEDESK_DB.prepare(sql).bind(...fullBinds).all();
+            const rows = (q.results || []).map(r => ({
+              member: r.member, chamber: r.chamber, date: r.date,
+              ticker: r.ticker, type: r.transaction_type, amount: r.range_text
+            }));
+            // Dedupe (qq_house/senate has duplicate rows)
+            const seen = new Set();
+            const deduped = rows.filter(r => {
+              const k = `${r.member}|${r.date}|${r.ticker}|${r.type}|${r.amount}`;
+              if (seen.has(k)) return false; seen.add(k); return true;
+            });
+            return { ok: true, count: deduped.length, trades: deduped.slice(0, limit) };
+          } catch (e) { return { ok: false, error: String(e).slice(0,200) }; }
         }
 
-        const systemPrompt = [
+        async function tool_query_contracts(args) {
+          try {
+            if (!env.TRADEDESK_DB) return { ok: false, error: "trades db unavailable" };
+            const ticker = (args.ticker || "").toUpperCase().slice(0,5);
+            const agency = (args.agency || "").slice(0,40);
+            const days = Math.min(parseInt(args.days || "365",10), 1825);
+            const limit = Math.min(parseInt(args.limit || "20",10), 50);
+            const dateCutoff = new Date(Date.now() - days*86400000).toISOString().slice(0,10);
+            const where = [`date >= ?`];
+            const binds = [dateCutoff];
+            if (ticker) { where.push("ticker = ?"); binds.push(ticker); }
+            if (agency) { where.push("LOWER(agency) LIKE ?"); binds.push("%"+agency.toLowerCase()+"%"); }
+            binds.push(limit);
+            const q = await env.TRADEDESK_DB.prepare(
+              `SELECT date, ticker, agency, description, amount FROM qq_contracts WHERE ${where.join(" AND ")} ORDER BY date DESC LIMIT ?`
+            ).bind(...binds).all();
+            return { ok: true, count: (q.results||[]).length, contracts: q.results || [] };
+          } catch (e) { return { ok: false, error: String(e).slice(0,200) }; }
+        }
+
+        async function tool_query_news(args) {
+          try {
+            if (!env.GEOINT_DB) return { ok: false, error: "news db unavailable" };
+            const ticker = (args.ticker || "").toUpperCase().slice(0,5);
+            const region = (args.region || "").slice(0,40);
+            const keyword = (args.keyword || "").slice(0,80);
+            const days = Math.min(parseInt(args.days || "7",10), 90);
+            const limit = Math.min(parseInt(args.limit || "10",10), 25);
+            const where = [`published_at >= datetime('now','-${days} days')`];
+            const binds = [];
+            if (ticker || keyword) {
+              const term = ticker || keyword;
+              where.push("(headline LIKE ? OR full_text LIKE ? OR keywords LIKE ?)");
+              binds.push("%"+term+"%","%"+term+"%","%"+term+"%");
+            }
+            if (region) {
+              where.push("LOWER(geopolitical_region) LIKE ?");
+              binds.push("%"+region.toLowerCase()+"%");
+            }
+            binds.push(limit);
+            const q = await env.GEOINT_DB.prepare(
+              `SELECT id, source, headline, published_at, market_impact_score, geopolitical_region FROM signals WHERE ${where.join(" AND ")} ORDER BY published_at DESC LIMIT ?`
+            ).bind(...binds).all();
+            const sigs = (q.results || []).map(r => ({
+              id: r.id, source: r.source, headline: (r.headline || '').slice(0,200),
+              when: r.published_at, impact: r.market_impact_score, region: r.geopolitical_region
+            }));
+            return { ok: true, count: sigs.length, signals: sigs };
+          } catch (e) { return { ok: false, error: String(e).slice(0,200) }; }
+        }
+
+        async function tool_query_tucks_score(args) {
+          try {
+            const ticker = (args.ticker || "").toUpperCase().slice(0,5);
+            if (!ticker) return { ok: false, error: "ticker required" };
+            if (!env.TRADEDESK_DB) return { ok: false, error: "scores db unavailable" };
+            const row = await env.TRADEDESK_DB.prepare(
+              "SELECT ticker, total_score, verdict, momentum_score, signal_score, congress_score, contract_score, score_date FROM tucks_scores WHERE ticker=? ORDER BY score_date DESC LIMIT 1"
+            ).bind(ticker).first().catch(()=>null);
+            if (!row) return { ok: true, score: null, note: `No score on file for ${ticker}.` };
+            return { ok: true, score: row };
+          } catch (e) { return { ok: false, error: String(e).slice(0,200) }; }
+        }
+
+        async function tool_query_macro() {
+          try {
+            const cached = await env.TUCK_KV.get('cache:macro:current','json');
+            if (cached) return { ok: true, macro: cached };
+            return { ok: false, error: "macro cache empty" };
+          } catch (e) { return { ok: false, error: String(e).slice(0,200) }; }
+        }
+
+        async function tool_query_prices(args) {
+          try {
+            const ticker = (args.ticker || "").toUpperCase().slice(0,5);
+            const cached = await env.TUCK_KV.get('cache:prices:current','json');
+            if (!cached || !cached.quotes) return { ok: false, error: "price cache empty" };
+            if (ticker) {
+              const q = cached.quotes[ticker];
+              if (!q) return { ok: true, note: `${ticker} not in watchlist. Tracked: ${TICKER_LIST.join(', ')}.` };
+              return { ok: true, ticker, price: q.price, change_pct: q.change_pct, prev_close: q.prev_close, name: q.name, asof: cached.ts };
+            }
+            // Return all
+            const all = {};
+            for (const t of TICKER_LIST) {
+              if (cached.quotes[t]) {
+                all[t] = { price: cached.quotes[t].price, change_pct: cached.quotes[t].change_pct };
+              }
+            }
+            return { ok: true, prices: all, asof: cached.ts };
+          } catch (e) { return { ok: false, error: String(e).slice(0,200) }; }
+        }
+
+        const TOOLS = {
+          query_congress: tool_query_congress,
+          query_contracts: tool_query_contracts,
+          query_news: tool_query_news,
+          query_tucks_score: tool_query_tucks_score,
+          query_macro: tool_query_macro,
+          query_prices: tool_query_prices
+        };
+
+        // ─── REGEX PRE-ROUTER: catch obvious patterns, force correct tool ──────
+        const msgLower = userMsg.toLowerCase();
+        const tickerMatch = userMsg.match(/\b(NVDA|NET|AVGO|QCOM|MU|INTC|MP|XLE|USO|KTOS|SOXX|QQQ|AAPL|MSFT|TSLA|GOOG|GOOGL|META|AMZN|AMD|PLTR)\b/);
+        const detectedTicker = tickerMatch ? tickerMatch[1] : null;
+
+        let forcedTool = null;
+        let forcedArgs = {};
+
+        // Detect: explicit congress words, OR known politician name patterns, OR "trades + capitalized name"
+        const knownPoliticianRe = /\b(pelosi|mccarthy|schumer|mcconnell|fetterman|cisneros|boozman|evans|gottheimer|crenshaw|tuberville|warren|sanders|gaetz|jordan|aoc|ocasio|cortez|biden|trump|harris|vance|johnson|jeffries|massie|paul|cruz|hawley|romney|manchin|sinema|cotton|rubio|durbin|wyden|markey|kelly|ossoff|warnock|reed|coons|whitehouse|hirono|smith|peters|stabenow|baldwin|brown|portman|gillibrand)/;
+        const hasNameOnly = /\b([A-Z][a-z]{2,}) ([A-Z][a-z]{2,})\b/.test(userMsg) && /\b(trade|trades|trading|stock|bought|sold|sell|sells|sales|purchase|buys|bought|holdings)/.test(msgLower);
+
+        if (/(congress|congressman|senator|representative|congresswoman|senate|house|capitol|lawmaker|politician)/.test(msgLower) || knownPoliticianRe.test(msgLower) || hasNameOnly) {
+          forcedTool = 'query_congress';
+          forcedArgs = { limit: 25, days: 730 };
+          if (detectedTicker) forcedArgs.ticker = detectedTicker;
+          if (/\b(sold|sell|sale|sales|dump|unload)/.test(msgLower)) forcedArgs.transaction_type = 'sale';
+          else if (/\b(bought|buy|buys|purchase|acquired|acquir)/.test(msgLower)) forcedArgs.transaction_type = 'purchase';
+          // Member name extraction — capitalized 2-word sequence (skip sentence-start words + tickers)
+          // Try ALL matches and pick the first one that's not a stop-word
+          const STOP_PREFIXES = new Set(['Did','Has','Have','Does','Are','Is','What','Who','When','Where','Why','How','Was','Were','Can','Will','Would','Should','Could','The','Any','Some','Show','Tell','List','Find','Look','Check','Hey','Hi','Hello','Yes','No','Ok','Okay']);
+          const memberMatches = [...userMsg.matchAll(/\b([A-Z][a-z]+) ([A-Z][a-z]+)\b/g)];
+          for (const m of memberMatches) {
+            const firstWord = m[1];
+            const fullName = m[0];
+            if (STOP_PREFIXES.has(firstWord)) {
+              // Try the second word + next capitalized word in the chain
+              continue;
+            }
+            if (!TICKER_LIST.includes(fullName.toUpperCase())) {
+              forcedArgs.member = fullName;
+              break;
+            }
+          }
+          // Fallback: if we skipped a "Did Dwight Evans" pattern, try just the surname
+          if (!forcedArgs.member) {
+            const fallback = userMsg.match(/\b(?:Did|Has|Have|Does|Are|Is|What|Who|Show|Tell|List|Find|Look|Check) ([A-Z][a-z]+) ([A-Z][a-z]+)\b/);
+            if (fallback) {
+              const candidate = fallback[1] + ' ' + fallback[2];
+              if (!TICKER_LIST.includes(candidate.toUpperCase())) {
+                forcedArgs.member = candidate;
+              }
+            }
+          }
+        } else if (/(contract|defense|pentagon|dod|gsa|federal contract)/.test(msgLower)) {
+          forcedTool = 'query_contracts';
+          forcedArgs = { limit: 15, days: 365 };
+          if (detectedTicker) forcedArgs.ticker = detectedTicker;
+        } else if (/(news|signal|headline|breaking|reported|article|happening)/.test(msgLower)) {
+          forcedTool = 'query_news';
+          forcedArgs = { limit: 10, days: 7 };
+          if (detectedTicker) forcedArgs.ticker = detectedTicker;
+          const regionMatch = msgLower.match(/(ukraine|russia|china|taiwan|israel|gaza|iran|middle east|europe|asia)/);
+          if (regionMatch) forcedArgs.region = regionMatch[1];
+        } else if (/(tuck.?s? score|conviction|verdict|rating|grade)/.test(msgLower) && detectedTicker) {
+          forcedTool = 'query_tucks_score';
+          forcedArgs = { ticker: detectedTicker };
+        } else if (/(macro|fed |interest rate|inflation|cpi|vix|treasury|10.?year|dollar|dxy|gold price|oil price|bitcoin price|btc price)/.test(msgLower)) {
+          forcedTool = 'query_macro';
+          forcedArgs = {};
+        } else if (detectedTicker && /(price|quote|trading|at today|right now|how much|cost|worth|going for|sitting at|at\?$|today\?$|now\?$)/.test(msgLower)) {
+          forcedTool = 'query_prices';
+          forcedArgs = { ticker: detectedTicker };
+        }
+
+        // Execute tool if forced
+        let toolResult = null;
+        let toolUsed = null;
+        if (forcedTool && TOOLS[forcedTool]) {
+          toolUsed = forcedTool;
+          toolResult = await TOOLS[forcedTool](forcedArgs);
+        }
+
+        // ─── SYSTEM PROMPT ─────────────────────────────────────────────────────
+        const systemPromptBase = [
           "You are Tuck — the AI guide of Tuck (tuck.osintnet.uk), a free OSINT and market education platform built by VPDLNY (Vulnerable Persons Defense League of NY).",
           "",
           "PERSONA: You speak with the calm confidence of Friar Tuck — a guardian of common folk against the powerful. Warm, plain-spoken, never condescending, never preachy. Use everyday language. Short paragraphs.",
           "",
           "MISSION: You serve the vulnerable, the poor, the oppressed, and the curious. You hand back the information Wall Street and the powerful try to hoard.",
           "",
-          "WHAT YOU KNOW ABOUT THIS SITE:",
-          "- Watchlist: 9 tickers — NVDA, NET, AVGO, QCOM, MP, XLE, USO, MU, INTC",
-          "- News: real-time OSINT signals from Al Jazeera, Axios, Breaking Defense, Guardian, with escalation/de-escalation scoring",
-          "- Congress: live congressional stock trade tracking (STOCK Act 2012 disclosures)",
-          "- Macro: Fed funds rate, CPI, unemployment, VIX, DXY, oil prices",
-          "- Learn: plain-English market education",
+          "WATCHLIST: NVDA, NET, AVGO, QCOM, MU, INTC, MP, XLE, USO, KTOS, SOXX, QQQ",
+          "",
+          "DATABASE TOOLS (the worker pre-fetches these when you need them; just compose from the results):",
+          "- query_congress: real STOCK Act filings — House + Senate trades by ticker, member, type",
+          "- query_contracts: federal contracts awarded to public companies",
+          "- query_news: 40+ source OSINT signals (Reuters, Al Jazeera, Axios, ISW, Breaking Defense, etc.)",
+          "- query_tucks_score: daily 0-100 conviction score with breakdown (momentum, signal, congress, contract)",
+          "- query_macro: Fed rate, oil, VIX, DXY, gold, BTC, copper, 10Y",
+          "- query_prices: live watchlist quotes",
           "",
           "HARD RULES (NEVER VIOLATE):",
-          "1. NEVER give financial advice, buy/sell recommendations, or price predictions. This is educational, not advisory.",
-          "2. If asked should I buy X — explain what the ticker is, what moves it, what data is on the site. Never tell them what to do with their money.",
-          "3. NEVER pretend to know real-time prices. Direct users to the Watchlist tab for live data.",
-          "4. Be honest about uncertainty. Say I don't know when you don't.",
-          "5. Keep answers under 200 words unless explicitly asked for more depth.",
-          "6. Don't moralize. Don't preach. Just help.",
+          "1. NEVER give financial advice, buy/sell recommendations, or price predictions. Educational only.",
+          "2. If asked 'should I buy X' — explain what it is and what data is on the site. Never tell them what to do with their money.",
+          "3. If a tool result is provided below, USE IT. Quote specific names, dates, amounts from the result. Do not paraphrase into vagueness.",
+          "4. If a tool result is empty (count: 0), say plainly 'no records found for X in the database' — do NOT invent data.",
+          "5. Be honest about uncertainty. Say 'I don't know' when you don't.",
+          "6. Keep answers under 200 words unless explicitly asked for more depth.",
+          "7. Don't moralize. Don't preach. Just help.",
           "",
           "If someone asks who built you: Tuck is open-source, free forever, built by VPDLNY, runs on Cloudflare Workers AI with Llama 3.3."
         ].join("\n");
 
+        // ─── ASSEMBLE MESSAGES ─────────────────────────────────────────────────
+        const messages = [{ role: "system", content: systemPromptBase }];
+        if (toolResult) {
+          // Trim tool result to keep context tight
+          const trimmed = JSON.stringify(toolResult).slice(0, 6000);
+          messages.push({
+            role: "system",
+            content: `TOOL RESULT for ${toolUsed}(${JSON.stringify(forcedArgs)}):\n${trimmed}\n\nCompose your answer using ONLY the facts in this result. If count is 0 or result is empty, say so plainly. Quote specific names/dates/amounts. Don't invent.`
+          });
+        }
+        messages.push({ role: "user", content: userMsg });
+
         const aiResp = await env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMsg }
-          ],
-          max_tokens: 500,
-          temperature: 0.7
+          messages,
+          max_tokens: 600,
+          temperature: 0.5  // Lower than v1 (0.7) — we want grounded, not creative
         });
 
         const reply = (aiResp && aiResp.response) ? aiResp.response : "Sorry friend, my mind went blank. Try asking again.";
-        return new Response(JSON.stringify({ reply }), {
-          headers: { "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify({
+          reply,
+          _tool_used: toolUsed,
+          _tool_count: toolResult ? (toolResult.count !== undefined ? toolResult.count : 'n/a') : null
+        }), { headers: ASK_TUCK_CORS });
       } catch (e) {
-        return new Response(JSON.stringify({ error: "Tuck is resting. Try again in a moment.", detail: e.message }), {
-          status: 500, headers: { "Content-Type": "application/json" }
+        console.error("[ask-tuck]", e?.stack || e);
+        return new Response(JSON.stringify({ error: "Tuck is resting. Try again in a moment." }), {
+          status: 500, headers: ASK_TUCK_CORS
         });
       }
     }
+
     if (path === "/api/prices") {
       try {
-        // ⚡ Persistent cache — twice-daily refresh via tuck-cache-refresh worker
+        // ⚡ Persistent cache — refreshed every 10min during session by tuck-cache-refresh worker
+        // TUCK v2.2 — FRESHNESS GATE: if cache is stale during market hours, background-trigger
+        // a refresh and serve cached with _stale flag so the UI can show a warning pill
         const cached = await env.TUCK_KV.get('cache:prices:current', 'json');
         if (cached && cached.quotes) {
-          return new Response(JSON.stringify(cached), { headers: { ...JSON_H, 'Cache-Control': 'public, max-age=300' }});
+          const cachedAt = cached.ts ? new Date(cached.ts) : null;
+          const ageMs = cachedAt ? Date.now() - cachedAt.getTime() : Infinity;
+          const ageMin = ageMs / 60000;
+          // Check if we're in US market hours (Mon-Fri 13:30-20:00 UTC = 9:30am-4pm ET)
+          const now = new Date();
+          const utcDay = now.getUTCDay(); // 0=Sun, 6=Sat
+          const utcHour = now.getUTCHours();
+          const utcMin = now.getUTCMinutes();
+          const utcTime = utcHour * 60 + utcMin;
+          const inSession = utcDay >= 1 && utcDay <= 5 && utcTime >= 13*60+30 && utcTime <= 20*60;
+          // During session: 20min stale threshold. Off hours: 6h before flagging stale.
+          const staleThreshold = inSession ? 20 : 360;
+          const isStale = ageMin > staleThreshold;
+          // If stale during market hours, fire a background refresh (no await — don't block user)
+          if (isStale && inSession && env.TUCK_REFRESH_SECRET) {
+            ctx.waitUntil(fetch('https://tuck-cache-refresh.thom-rvr.workers.dev/refresh', {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + env.TUCK_REFRESH_SECRET }
+            }).catch(()=>{}));
+          }
+          const responseBody = {
+            ...cached,
+            _stale: isStale,
+            _age_min: Math.round(ageMin * 10) / 10,
+            _in_session: inSession,
+          };
+          return new Response(JSON.stringify(responseBody), { headers: { ...JSON_H, 'Cache-Control': isStale ? 'public, max-age=30' : 'public, max-age=300' }});
         }
         // ── Cold-cache fallback (first deploy, KV miss) — original live-fetch path ──
         const baseRes = await fetch(PRICE_URL + "/prices");
@@ -6762,11 +7301,23 @@ var worker_default = {
     }
     if (path === "/api/news") {
       try {
-        const r = await fetch(INGEST_URL + "/signals" + url.search);
+        // HARDENED: clamp limit param at edge to prevent bandwidth amplification
+        const safeUrl = new URL(INGEST_URL + "/signals");
+        for (const [k, v] of url.searchParams) {
+          if (k === "limit") {
+            const n = Math.min(Math.max(parseInt(v, 10) || 30, 1), 200);
+            safeUrl.searchParams.set("limit", String(n));
+          } else {
+            safeUrl.searchParams.set(k, v);
+          }
+        }
+        if (!safeUrl.searchParams.has("limit")) safeUrl.searchParams.set("limit", "30");
+        const r = await fetch(safeUrl.toString());
         const t = await r.text();
         return new Response(t, { headers: JSON_H });
       } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 502, headers: JSON_H });
+        console.error("[news]", e?.stack || e);
+        return new Response(JSON.stringify({ error: "News service unavailable." }), { status: 502, headers: JSON_H });
       }
     }
     if (path === "/api/squawk") {
@@ -7036,11 +7587,21 @@ var worker_default = {
       }
     }
     if (path === "/health") {
-      return new Response(JSON.stringify({ status: "ok", platform: "Tuck", version: "v1.0", ts: (/* @__PURE__ */ new Date()).toISOString() }), { headers: JSON_H });
+      return new Response(JSON.stringify({ status: "ok", platform: "Tuck", version: "v2.0", ts: (/* @__PURE__ */ new Date()).toISOString() }), { headers: JSON_H });
     }
-    if (path === "/privacy") return new Response(PRIVACY_HTML, { headers: { "Content-Type": "text/html;charset=UTF-8", "Cache-Control": "public, max-age=3600" } });
-    if (path === "/tos") return new Response(TOS_HTML, { headers: { "Content-Type": "text/html;charset=UTF-8", "Cache-Control": "public, max-age=3600" } });
-    if (path === "/about") return new Response(ABOUT_HTML, { headers: { "Content-Type": "text/html;charset=UTF-8", "Cache-Control": "public, max-age=3600" } });
+    // HARDENED: baseline security headers for all HTML responses
+    const SEC_HEADERS = {
+      "Content-Type": "text/html;charset=UTF-8",
+      "Cache-Control": "public, max-age=3600",
+      "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
+      "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=()"
+    };
+    if (path === "/privacy") return new Response(PRIVACY_HTML, { headers: SEC_HEADERS });
+    if (path === "/tos") return new Response(TOS_HTML, { headers: SEC_HEADERS });
+    if (path === "/about") return new Response(ABOUT_HTML, { headers: SEC_HEADERS });
     if (path === "/" || path === "") {
       return new Response(buildHTML(), {
         headers: { "Content-Type": "text/html;charset=UTF-8", "Cache-Control": "no-store, must-revalidate" }
