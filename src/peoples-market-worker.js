@@ -1,3 +1,6 @@
+const DARK_INITIALS={MU:'#0a2540'};
+const LOGO_BG={INTC:'#0068b5'};
+const WEAK_LOGOS={QQQ:'#1d4ed8',USO:'#0d9488',XLE:'#b45309',IVV:'#1d4ed8',SPY:'#1d4ed8',VOO:'#1d4ed8',DIA:'#1d4ed8',IWM:'#7c3aed'};
 // ═══════════ TUCK v2 BUNDLE START ═══════════
 
 function __confPct(c){
@@ -758,6 +761,7 @@ const ROUTE_LIST = [
   { path: '/watchlist', label: 'Pulse',    icon: 'pulse',    primary: true },
   { path: '/scanner',   label: 'Scanner',  icon: 'scanner',  primary: true },
   { path: '/scores',    label: 'Scores',   icon: 'scores',   primary: true },
+  { path: '/war3',      label: 'War3',     icon: 'warning',  primary: true },
   { path: '/ravid',     label: 'Ravid',    icon: 'ravid' },
   { path: '/congress',  label: 'Congress', icon: 'congress' },
   { path: '/scenarios', label: 'AI Scenarios', icon: 'scenarios' },
@@ -855,6 +859,24 @@ const CLIENT_JS = `
 (() => {
   'use strict';
 
+  // ─── Consistent ticker logo (SoFi-style) — mirrors server maps ───
+  const _DARK_INITIALS = { MU: '#0a2540' };
+  const _LOGO_BG = { INTC: '#0068b5' };
+  const _WEAK_LOGOS = { QQQ:'#1d4ed8', USO:'#0d9488', XLE:'#b45309', IVV:'#1d4ed8', SPY:'#1d4ed8', VOO:'#1d4ed8', DIA:'#1d4ed8', IWM:'#7c3aed' };
+  window.__tuckLogoFail = function(img){ img.style.display='none'; if(img.nextElementSibling) img.nextElementSibling.style.display='flex'; };
+  window.tuckLogo = function(ticker, size){
+    const t = String(ticker||'').toUpperCase(); const s = size||40;
+    const fs = Math.round(s*0.34);
+    const ring = (bg, inner) => '<span style="width:'+s+'px;height:'+s+'px;border-radius:50%;background:'+bg+';display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 1px 3px rgba(0,0,0,.35);">'+inner+'</span>';
+    const initials = (color) => '<span style="display:flex;width:100%;height:100%;border-radius:50%;color:'+color+';font-weight:900;font-size:'+fs+'px;align-items:center;justify-content:center;">'+t.slice(0,2)+'</span>';
+    const img = (fbColor) => '<img src="https://financialmodelingprep.com/image-stock/'+t+'.png" alt="" width="'+s+'" height="'+s+'" style="border-radius:50%;object-fit:contain;" onerror=window.__tuckLogoFail(this)><span style="display:none;width:100%;height:100%;border-radius:50%;color:'+fbColor+';font-weight:800;font-size:'+fs+'px;align-items:center;justify-content:center;">'+t.slice(0,2)+'</span>';
+    if(!t) return '';
+    if(_DARK_INITIALS[t]) return ring('#fff', initials(_DARK_INITIALS[t]));
+    if(_LOGO_BG[t]) return ring(_LOGO_BG[t], img('#fff'));
+    if(_WEAK_LOGOS[t]) return ring(_WEAK_LOGOS[t], initials('#fff'));
+    return ring('#f4f6f8', img('#cbd5e1'));
+  };
+
   // ─── Utility ───
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -902,6 +924,32 @@ const CLIENT_JS = `
   }
   setInterval(refreshFreshness, 30000);
   refreshFreshness();
+
+  // ─── TUCK v2.3 — US market-session badge (ET-aware) ───
+  function marketStatus() {
+    // Build ET time via Intl (handles DST automatically)
+    const now = new Date();
+    const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const day = et.getDay();                 // 0=Sun..6=Sat
+    const mins = et.getHours() * 60 + et.getMinutes();
+    const weekday = day >= 1 && day <= 5;
+    if (!weekday) return { label: 'Market closed', cls: 'ms-closed', note: 'Weekend' };
+    if (mins >= 240 && mins < 570)  return { label: 'Premarket', cls: 'ms-pre',  note: '4:00–9:30a ET' };   // 4:00a–9:30a
+    if (mins >= 570 && mins < 960)  return { label: 'Market open', cls: 'ms-open', note: '9:30a–4:00p ET' };  // 9:30a–4:00p
+    if (mins >= 960 && mins < 1200) return { label: 'After hours', cls: 'ms-after', note: '4:00–8:00p ET' };  // 4:00p–8:00p
+    return { label: 'Market closed', cls: 'ms-closed', note: 'Reopens 4:00a ET' };
+  }
+  function refreshMarketBadge() {
+    const ms = marketStatus();
+    $$('.market-status').forEach(el => {
+      el.textContent = ms.label;
+      el.className = 'market-status ' + ms.cls;
+      el.title = ms.note;
+    });
+  }
+  window.tuckMarketStatus = marketStatus;
+  setInterval(refreshMarketBadge, 30000);
+  refreshMarketBadge();
 
   // ─── Score color tier ───
   function scoreClass(score) {
@@ -1009,6 +1057,29 @@ const CLIENT_JS = `
   function closeSheet() { if (currentSheet) currentSheet.close(); }
   window.openSheet = openSheet;
   window.closeSheet = closeSheet;
+  // ── Shared modal helpers ──
+  // Strip HTML tags + decode common entities so feed prose renders as clean text.
+  window.__stripHtml = function(str){
+    if(str==null) return '';
+    var s = String(str);
+    s = s.replace(/<[^>]*>/g, ' ');                 // drop tags
+    var ta = document.createElement('textarea');
+    ta.innerHTML = s;                                // decode &amp; &quot; &#39; etc.
+    s = ta.value;
+    return s.replace(/\\s+/g, ' ').trim();          // collapse whitespace
+  };
+  // Robust timestamp → locale string. Accepts sec, ms, ISO string, Date. Returns '' if unparseable.
+  window.__safeDate = function(v){
+    if(v==null || v==='') return '';
+    var d;
+    if(typeof v === 'number'){ d = new Date(v < 1e12 ? v*1000 : v); }
+    else if(typeof v === 'string'){
+      var n = parseFloat(v);
+      if(!isNaN(n) && /^[0-9.]+$/.test(v.trim())){ d = new Date(n < 1e12 ? n*1000 : n); }
+      else { d = new Date(v); }
+    } else { d = new Date(v); }
+    return isNaN(d.getTime()) ? '' : d.toLocaleString();
+  };
 
   // ─── SPA route navigation ───
   // TUCK v2.1 — SPA navigation with route-CSS swap + cleanup lifecycle.
@@ -1252,10 +1323,26 @@ const ASK_TUCK_CSS = `#ask-tuck-btn{position:fixed;bottom:24px;right:24px;width:
 #ask-tuck-send:hover{background:#16a34a}
 #ask-tuck-send:disabled{background:#475569;color:#94a3b8;cursor:not-allowed}
 #ask-tuck-disclaimer{font-size:9px;color:#64748b;padding:0 12px 8px;text-align:center;line-height:1.4}
-@media(max-width:480px){
-  #ask-tuck-panel{right:12px;left:12px;width:auto;bottom:90px}
-  #ask-tuck-btn{bottom:16px;right:16px;width:56px;height:56px}
-  #ask-tuck-btn img{width:40px;height:40px}
+/* TUCK v2.3 — IIM badge: cap size on DESKTOP only (mobile stays full-width) */
+.btc-short{display:none}
+/* IIM badge: full-width like all other cards (cap removed May 29) */
+.iim-badge-img{max-width:100%;width:100%}
+.iim-badge-link{max-width:100%;width:100%}
+/* TUCK v2.3 — BTC donate card: tighter on MOBILE only */
+@media(max-width:560px){
+  .btc-long{display:none}
+  .btc-short{display:block}
+  .btc-card{padding:14px}
+  .btc-card .card-title{font-size:15px}
+  .btc-card [title="Open in your Bitcoin wallet"]{width:112px!important;height:112px!important;padding:6px!important}
+  .btc-card a[title="Open in wallet"]{font-size:11px!important;padding:9px 10px!important}
+  .btc-card>div{padding:13px!important;gap:13px!important}
+}
+@media(max-width:1023px){
+  /* lift FAB above the bottom tab bar with a clear gap, pinned right */
+  #ask-tuck-btn{bottom:calc(var(--hit) + 26px + var(--safe-bottom));right:14px;width:54px;height:54px}
+  #ask-tuck-btn img{width:38px;height:38px}
+  #ask-tuck-panel{right:12px;left:12px;width:auto;bottom:calc(var(--hit) + 86px + var(--safe-bottom));max-height:calc(100vh - var(--hit) - 160px)}
 }`;
 
 const ASK_TUCK_BLOCK = `<!-- ASK TUCK FLOATING WIDGET -->
@@ -1454,6 +1541,15 @@ function esc(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+function decodeSrc(str){ if(str==null) return ''; return String(str)
+  .replace(/&quot;/g,'"').replace(/&#34;/g,'"')
+  .replace(/&apos;/g,"'").replace(/&#39;/g,"'")
+  .replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+  .replace(/&amp;/g,'&'); }
+function safeText(str){ // decode source entities, then escape ONLY <,>,& for safe text-node render (keep quotes literal)
+  const d = decodeSrc(str);
+  return String(d).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 
 
 // ── lib/watchlist.js ─────────────────────────────────
@@ -1660,6 +1756,7 @@ function renderPulseStrip(rows, cachedAt) {
 <section class="pulse-wrap" aria-label="Live ticker pulse">
   <div class="pulse-hdr">
     <span class="pulse-label">${icon('pulse')}<span>Live Pulse</span></span>
+    <span class="market-status ms-init" title="US market session">·</span>
     <span class="fresh" id="prices-fresh" data-iso="${esc(isoStamp)}">Updated ${timeAgoServer(isoStamp)}</span>
   </div>
   <div class="pulse-strip" id="pulse-strip">${cards}</div>
@@ -1726,7 +1823,7 @@ function renderFeatureGrid(boot) {
 function renderFooter() {
   return `
 <section class="home-footer">
-  <p>Tuck is a free, open OSINT financial intelligence platform built by <a href="https://vpdlny.org" rel="noopener">VPDLNY</a>.</p>
+  <p>Tuck is a free, open OSINT financial-intelligence platform from <strong>Indica Independent Media</strong> — the public face of <strong>VPDLNY</strong>.</p>
   <p><strong>Educational only.</strong> Nothing here is investment advice or a recommendation to buy or sell any security.</p>
   <p>News aggregated from public RSS feeds · Congressional data from public SEC filings · Macro data from FRED</p>
 </section>`;
@@ -1983,8 +2080,16 @@ function renderListPage({ quotes, scoresByTicker, prices, spa }) {
       : `<span class="score-badge score-cold">—</span>`;
     return `<a class="wl-row card card-interactive wl-${dir}" href="/watchlist/${esc(w.ticker)}" data-route>
       <div class="wl-ticker">
-        <div class="wl-tick">${esc(w.ticker)}</div>
-        <div class="wl-name">${esc(w.name)}</div>
+        ${(()=>{const _t=(w.ticker||'').toUpperCase();
+  if(DARK_INITIALS[_t]) return `<span class="wl-logo-ring" style="background:#fff"><span class="wl-logo-fb" style="display:flex;color:${DARK_INITIALS[_t]};font-weight:900;">${esc(_t)}</span></span>`;
+  if(LOGO_BG[_t]) return `<span class="wl-logo-ring" style="background:${LOGO_BG[_t]}"><img class="wl-logo" src="https://financialmodelingprep.com/image-stock/${esc(w.ticker)}.png" alt="" width="38" height="38" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/><span class="wl-logo-fb" style="display:none;color:#fff;">${esc(_t.slice(0,2))}</span></span>`;
+  if(WEAK_LOGOS[_t]) return `<span class="wl-logo-ring" style="background:${WEAK_LOGOS[_t]}"><span class="wl-logo-fb" style="display:flex;color:#fff;">${esc(_t.slice(0,2))}</span></span>`;
+  return `<span class="wl-logo-ring"><img class="wl-logo" src="https://financialmodelingprep.com/image-stock/${esc(w.ticker)}.png" alt="" width="38" height="38" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('fb');this.nextElementSibling.style.display='flex';"/><span class="wl-logo-fb" style="display:none;">${esc(_t.slice(0,2))}</span></span>`;
+})()}
+        <div class="wl-ticker-txt">
+          <div class="wl-tick">${esc(w.ticker)}</div>
+          <div class="wl-name">${esc(w.name)}</div>
+        </div>
       </div>
       <div class="wl-price-col">
         <div class="wl-price">${hasPrice ? '$' + Number(q.price).toFixed(2) : '—'}</div>
@@ -2116,6 +2221,12 @@ function formatBig(n) {
 }
 
 const WL_CSS = `
+.wl-ticker{display:flex;align-items:center;gap:10px}
+.wl-logo-ring{width:40px;height:40px;border-radius:50%;background:#f4f6f8;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 1px 3px rgba(0,0,0,.35)}
+.wl-logo-ring.fb{background:#1f2937}
+.wl-logo{border-radius:50%;object-fit:contain}
+.wl-logo-fb{width:100%;height:100%;border-radius:50%;color:#cbd5e1;font-size:13px;font-weight:800;align-items:center;justify-content:center}
+.wl-ticker-txt{min-width:0}
 .wl-list { display: flex; flex-direction: column; gap: var(--sp-2); }
 .wl-row {
   display: grid;
@@ -2294,7 +2405,7 @@ function renderSignal(s) {
   const tickerPills = tickers.slice(0, 4).map(t => `<a href="/watchlist/${esc(t)}" data-route class="sig-ticker-pill" onclick="event.stopPropagation()">${esc(t)}</a>`).join('');
   const headline = s.headline || s.full_text || '';
   const _d = safeDate(s.published_at); const ageISO = _d ? _d.toISOString() : null;
-  return `<button class="sig-row card card-interactive ${cls}" onclick='openSignalSheet(${JSON.stringify(JSON.stringify(s)).slice(1,-1)})' aria-label="${esc(headline.slice(0,80))}">
+  return `<button class="sig-row card card-interactive ${cls}" data-signal="${esc(JSON.stringify(s))}" aria-label="${esc(headline.slice(0,80))}">
     ${score != null ? `<span class="sig-score sig-score-${cls}">${score}%</span>` : `<span class="sig-score">—</span>`}
     <div class="sig-body">
       <div class="sig-headline">${esc(headline.slice(0, 180))}</div>
@@ -2380,19 +2491,19 @@ const SCN_CSS = `
 `;
 
 const SCN_JS = `
-window.openSignalSheet = function(jsonStr) {
-  let s;
-  try { s = JSON.parse(jsonStr); } catch(e) { return; }
+window.openSignalSheet = function(s) {
+  if (typeof s === 'string') { try { s = JSON.parse(s); } catch(e) { return; } }
+  if (!s) return;
   const headline = s.headline || s.full_text || '';
   const tickers = (s.related_tickers || '').split(/[\\s,]+/).filter(Boolean);
   const score = s.market_impact_score != null ? Math.round(s.market_impact_score * 100) : null;
   const html = \`
     \${score != null ? \`<div style="margin-bottom:var(--sp-3);"><span class="pill" style="background:var(--bg-elev2);color:var(--fg);font-size:13px;height:32px;padding:0 12px;">Escalation \${score}%</span> <span class="pill" style="margin-left:6px;">\${(s.sentiment||'').toUpperCase()}</span></div>\` : ''}
-    <h3 style="font-size:var(--tx-md);margin-bottom:var(--sp-2);">\${(headline)}</h3>
-    <p style="color:var(--fg-dim);line-height:var(--lh-relaxed);">\${s.full_text ? (s.full_text === headline ? '' : s.full_text) : ''}</p>
+    <h3 style="font-size:var(--tx-md);margin-bottom:var(--sp-2);">\${__stripHtml(headline)}</h3>
+    <p style="color:var(--fg-dim);line-height:var(--lh-relaxed);">\${s.full_text ? (s.full_text === headline ? '' : __stripHtml(s.full_text)) : ''}</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:var(--sp-3);">
       <span class="pill">\${(s.source||'source').toUpperCase()}</span>
-      \${s.published_at ? \`<span class="pill">\${new Date(s.published_at*1000).toLocaleString()}</span>\` : ''}
+      \${__safeDate(s.published_at) ? \`<span class="pill">\${__safeDate(s.published_at)}</span>\` : ''}
     </div>
     \${tickers.length ? \`<h3 style="margin-top:var(--sp-4);font-size:var(--tx-md);">Related tickers</h3>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -2406,6 +2517,17 @@ window.openSignalSheet = function(jsonStr) {
 // Region chip filter
 (() => {
   const list = document.getElementById('sig-list');
+  // Delegated click → open signal sheet from data-signal attr (document-level, SPA-proof).
+  if (!document.__sigWired) {
+    document.__sigWired = true;
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.sig-ticker-pill')) return; // let ticker links navigate
+      const row = e.target.closest('.sig-row');
+      if (!row) return;
+      const raw = row.getAttribute('data-signal');
+      try { window.openSignalSheet(JSON.parse(raw)); } catch(_) {}
+    });
+  }
   if (!list) return;
   const chips = document.querySelectorAll('.chip-row .chip');
   const filters = {
@@ -2489,12 +2611,12 @@ function renderScoop(s) {
   const ts = safeDate(s.published_at);
   const dateStr = ts ? ts.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
   const isoStamp = ts ? ts.toISOString() : null;
-  return `<button class="ravid-row card card-interactive ${cls}" onclick='openRavidSheet(${JSON.stringify(JSON.stringify(s)).slice(1,-1)})' aria-label="Ravid scoop ${esc(dateStr)}">
+  return `<button class="ravid-row card card-interactive ${cls}" data-scoop="${esc(JSON.stringify(s))}" aria-label="Ravid scoop ${esc(dateStr)}">
     <div class="ravid-top">
       <span class="ravid-byline">@BarakRavid</span>
       <span class="ravid-time"${isoStamp ? ` data-iso="${esc(isoStamp)}"` : ''}>${esc(dateStr)}</span>
     </div>
-    <div class="ravid-text">${esc((s.headline || s.full_text || '').slice(0, 280))}</div>
+    <div class="ravid-text">${safeText(decodeSrc(s.headline || s.full_text || '').slice(0, 280))}</div>
     <div class="ravid-foot">
       ${score != null ? `<span class="pill pill-${cls === 'sig-esc' ? 'dn' : (cls === 'sig-deesc' ? 'up' : 'beta')}">${esc(sentiment.toUpperCase())} ${score}%</span>` : ''}
     </div>
@@ -2551,22 +2673,33 @@ details[open] > .ravid-bio-toggle::before { transform: rotate(90deg); }
 `;
 
 const RAVID_JS = `
-window.openRavidSheet = function(jsonStr) {
-  let s;
-  try { s = JSON.parse(jsonStr); } catch(e) { return; }
-  const ts = s.published_at ? new Date(s.published_at * 1000) : null;
+function __decodeEnt(str){ if(!str) return ''; const t=document.createElement('textarea'); t.innerHTML=str; return t.value; }
+window.openRavidSheet = function(s) {
+  if (typeof s === 'string') { try { s = JSON.parse(s); } catch(e) { return; } }
+  if (!s) return;
+  const ts = __safeDate(s.published_at);
   const score = s.market_impact_score != null ? Math.round(s.market_impact_score * 100) : null;
   const html = \`
     <div style="margin-bottom:var(--sp-3);">
       <span class="pill" style="background:var(--info-soft);color:#93c5fd;font-size:11px;letter-spacing:0.05em;">@BarakRavid</span>
-      \${ts ? \`<span style="margin-left:8px;font-size:var(--tx-xs);color:var(--fg-faint);">\${ts.toLocaleString()}</span>\` : ''}
+      \${ts ? \`<span style="margin-left:8px;font-size:var(--tx-xs);color:var(--fg-faint);">\${ts}</span>\` : ''}
     </div>
-    <p style="color:var(--fg);line-height:var(--lh-relaxed);font-size:var(--tx-base);">\${s.full_text || s.headline || ''}</p>
+    <p style="color:var(--fg);line-height:var(--lh-relaxed);font-size:var(--tx-base);">\${__decodeEnt(s.full_text || s.headline || '')}</p>
     \${score != null ? \`<div style="margin-top:var(--sp-3);"><span class="pill">Escalation \${score}%</span> <span class="pill">\${(s.sentiment||'').toUpperCase()}</span></div>\` : ''}
     \${s.url ? \`<a href="\${s.url}" target="_blank" rel="noopener" class="btn" style="margin-top:var(--sp-4);width:100%;">Read on source →</a>\` : ''}
   \`;
   window.openSheet({ title: 'Ravid scoop', html });
 };
+(() => {
+  if (document.__ravidWired) return;
+  document.__ravidWired = true;
+  document.addEventListener('click', (e) => {
+    const row = e.target.closest('.ravid-row');
+    if (!row) return;
+    const raw = row.getAttribute('data-scoop');
+    try { window.openRavidSheet(JSON.parse(raw)); } catch(_) {}
+  });
+})();
 `;
 
 // ── routes/congress.js ─────────────────────────────────
@@ -2579,20 +2712,35 @@ async function congressRoute({ env, url, spa = false }) {
   let trades = [];
   try {
     if (env.TRADEDESK_DB) {
-      const q = await env.TRADEDESK_DB.prepare(
-        "SELECT * FROM (" +
-        "  SELECT representative AS member_name, 'House' AS chamber, bio_guide_id, date AS trade_date, ticker, transaction_type AS txn_type, range_text AS amount_label " +
-        "  FROM qq_house WHERE ticker IS NOT NULL AND ticker != '' " +
-        "  UNION ALL " +
-        "  SELECT senator AS member_name, 'Senate' AS chamber, bio_guide_id, date AS trade_date, ticker, transaction_type AS txn_type, range_text AS amount_label " +
-        "  FROM qq_senate WHERE ticker IS NOT NULL AND ticker != '' " +
-        ") ORDER BY trade_date DESC LIMIT 30"
-      ).all();
+      let q;
+      try {
+        q = await env.TRADEDESK_DB.prepare(
+          "SELECT * FROM (" +
+          "  SELECT representative AS member_name, 'House' AS chamber, bio_guide_id, date AS trade_date, ticker, transaction_type AS txn_type, range_text AS amount_label, disclosure_date AS disc_date " +
+          "  FROM qq_house WHERE ticker IS NOT NULL AND ticker != '' " +
+          "  UNION ALL " +
+          "  SELECT senator AS member_name, 'Senate' AS chamber, bio_guide_id, date AS trade_date, ticker, transaction_type AS txn_type, range_text AS amount_label, disclosure_date AS disc_date " +
+          "  FROM qq_senate WHERE ticker IS NOT NULL AND ticker != '' " +
+          ") ORDER BY trade_date DESC LIMIT 30"
+        ).all();
+      } catch(sqlErr) {
+        // disclosure_date column may not exist — fall back to the safe query
+        q = await env.TRADEDESK_DB.prepare(
+          "SELECT * FROM (" +
+          "  SELECT representative AS member_name, 'House' AS chamber, bio_guide_id, date AS trade_date, ticker, transaction_type AS txn_type, range_text AS amount_label, NULL AS disc_date " +
+          "  FROM qq_house WHERE ticker IS NOT NULL AND ticker != '' " +
+          "  UNION ALL " +
+          "  SELECT senator AS member_name, 'Senate' AS chamber, bio_guide_id, date AS trade_date, ticker, transaction_type AS txn_type, range_text AS amount_label, NULL AS disc_date " +
+          "  FROM qq_senate WHERE ticker IS NOT NULL AND ticker != '' " +
+          ") ORDER BY trade_date DESC LIMIT 30"
+        ).all();
+      }
       trades = (q.results || []).map(t => ({
         name: t.member_name, member_name: t.member_name, chamber: t.chamber,
         bio_guide_id: t.bio_guide_id, party: null, ticker: t.ticker,
         transaction: t.txn_type, transaction_type: t.txn_type, type: t.txn_type,
-        date: t.trade_date, trade_date: t.trade_date,
+        date: t.trade_date, trade_date: t.trade_date, transaction_date: t.trade_date,
+        disclosure_date: t.disc_date || null,
         amount: t.amount_label, range: t.amount_label
       }));
     }
@@ -2649,18 +2797,23 @@ function renderTrade(t) {
   const initials = (t.name || '').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase();
   const partyCls = (t.party || '').toLowerCase().startsWith('r') ? 'av-r' : ((t.party || '').toLowerCase().startsWith('d') ? 'av-d' : 'av-i');
   const chamberCls = (t.chamber || '').toLowerCase() === 'senate' ? 'ch-senate' : 'ch-house';
-  return `<button class="cong-row card card-interactive ${cls}" data-chamber="${esc((t.chamber||'').toLowerCase())}" data-action="${isBuy ? 'buy' : (isSell ? 'sell' : 'other')}" onclick='openTradeSheet(${JSON.stringify(JSON.stringify(t)).slice(1,-1)})' aria-label="${esc(t.name||'')} ${isBuy?'bought':'sold'} ${esc(t.ticker||'')}">
+  return `<button class="cong-row card card-interactive ${cls}" data-chamber="${esc((t.chamber||'').toLowerCase())}" data-action="${isBuy ? 'buy' : (isSell ? 'sell' : 'other')}" data-trade="${esc(JSON.stringify(t))}" aria-label="${esc(t.name||'')} ${isBuy?'bought':'sold'} ${esc(t.ticker||'')}">
     <span class="cong-avatar ${partyCls}">${esc(initials || '?')}</span>
     <div class="cong-body">
       <div class="cong-name">${esc(t.name || '')}</div>
       <div class="cong-meta">
         <span class="cong-chamber ${chamberCls}">${esc(t.chamber || '')}</span>
         ${t.party ? `<span class="cong-party">${esc(t.party)}</span>` : ''}
-        ${t.transaction_date ? `<span class="cong-date">${esc(t.transaction_date)}</span>` : ''}
+        ${t.trade_date ? `<span class="cong-date">Traded ${esc(t.trade_date)}</span>` : ''}
       </div>
     </div>
     <div class="cong-right">
-      <span class="cong-ticker">${esc(t.ticker || '')}</span>
+      <span class="cong-tk-wrap">${t.ticker ? (()=>{const _t=(t.ticker||'').toUpperCase();
+  if(DARK_INITIALS[_t]) return `<span class="cong-logo-ring" style="background:#fff"><span class="cong-logo-fb" style="display:flex;color:${DARK_INITIALS[_t]};font-weight:900;">${esc(_t.slice(0,2))}</span></span>`;
+  if(LOGO_BG[_t]) return `<span class="cong-logo-ring" style="background:${LOGO_BG[_t]}"><img class="cong-logo" src="https://financialmodelingprep.com/image-stock/${esc(_t)}.png" alt="" width="26" height="26" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/><span class="cong-logo-fb" style="display:none;color:#fff;">${esc(_t.slice(0,2))}</span></span>`;
+  if(WEAK_LOGOS[_t]) return `<span class="cong-logo-ring" style="background:${WEAK_LOGOS[_t]}"><span class="cong-logo-fb" style="display:flex;color:#fff;">${esc(_t.slice(0,2))}</span></span>`;
+  return `<span class="cong-logo-ring"><img class="cong-logo" src="https://financialmodelingprep.com/image-stock/${esc(_t)}.png" alt="" width="26" height="26" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('fb');this.nextElementSibling.style.display='flex';"/><span class="cong-logo-fb" style="display:none;">${esc(_t.slice(0,2))}</span></span>`;
+})() : ''}<span class="cong-ticker">${esc(t.ticker || '—')}</span></span>
       <span class="cong-action cong-action-${isBuy?'buy':(isSell?'sell':'other')}">${isBuy?'BUY':(isSell?'SELL':esc((t.transaction||'').toUpperCase().slice(0,8)))}</span>
       ${t.amount ? `<span class="cong-amt">${esc(t.amount)}</span>` : ''}
     </div>
@@ -2677,6 +2830,11 @@ function renderEmpty_congress() {
 
 const CONG_CSS = `
 .cong-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cong-tk-wrap{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end}
+.cong-logo-ring{width:28px;height:28px;border-radius:50%;background:#f4f6f8;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 1px 2px rgba(0,0,0,.3)}
+.cong-logo-ring.fb{background:#1f2937}
+.cong-logo{border-radius:50%;object-fit:contain}
+.cong-logo-fb{width:100%;height:100%;border-radius:50%;color:#cbd5e1;font-size:10px;font-weight:800;align-items:center;justify-content:center}
 .cong-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -2728,32 +2886,95 @@ const CONG_CSS = `
 `;
 
 const CONG_JS = `
-window.openTradeSheet = function(jsonStr) {
-  let t;
-  try { t = JSON.parse(jsonStr); } catch(e) { return; }
+window.openTradeSheet = function(t) {
+  if (typeof t === 'string') { try { t = JSON.parse(t); } catch(e) { return; } }
+  if (!t) return;
   const isBuy = /purchase|buy/i.test(t.transaction || '');
   const isSell = /sale|sell/i.test(t.transaction || '');
+  const tk = (t.ticker || '').toUpperCase();
+  const logo = tk ? window.tuckLogo(tk, 40) : '';
   const html = \`
     <div style="margin-bottom:var(--sp-4);">
       <h3 style="font-size:var(--tx-md);margin-bottom:var(--sp-1);">\${(t.name || '')}</h3>
       <div style="color:var(--fg-faint);font-size:var(--tx-sm);">\${(t.chamber || '')} · \${(t.party || 'Independent')}</div>
     </div>
+    \${tk ? \`<div id="tk-head-\${tk}" style="display:flex;align-items:center;gap:11px;background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:11px 13px;border-radius:11px;margin-bottom:var(--sp-3);">
+      \${logo}
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:15px;line-height:1.1;">\${tk}</div>
+        <div id="tk-name-\${tk}" style="font-size:12px;color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Loading…</div>
+      </div>
+      <div id="tk-px-\${tk}" style="text-align:right;font-size:12px;color:var(--fg-faint);">·</div>
+    </div>\` : ''}
     <div class="score-comps" style="grid-template-columns:1fr 1fr;">
-      <div class="score-comp"><span class="score-comp-k">Ticker</span><span class="score-comp-v">\${(t.ticker || '—')}</span></div>
+      <div class="score-comp"><span class="score-comp-k">Ticker</span><span class="score-comp-v">\${tk || '—'}</span></div>
       <div class="score-comp"><span class="score-comp-k">Action</span><span class="score-comp-v" style="color:\${isBuy?'var(--calm)':isSell?'var(--escalate)':'var(--fg-faint)'}">\${(t.transaction || '—')}</span></div>
       \${t.amount ? '<div class="score-comp"><span class="score-comp-k">Amount</span><span class="score-comp-v" style="font-size:var(--tx-sm)">' + (t.amount) + '</span></div>' : ''}
       \${t.transaction_date ? '<div class="score-comp"><span class="score-comp-k">Trade Date</span><span class="score-comp-v" style="font-size:var(--tx-sm)">' + (t.transaction_date) + '</span></div>' : ''}
-      \${t.disclosure_date ? '<div class="score-comp"><span class="score-comp-k">Disclosed</span><span class="score-comp-v" style="font-size:var(--tx-sm)">' + (t.disclosure_date) + '</span></div>' : ''}
+      \${t.disclosure_date ? '<div class="score-comp"><span class="score-comp-k">Disclosed</span><span class="score-comp-v" style="font-size:var(--tx-sm)">' + (t.disclosure_date) + '</span></div>' : '<div class="score-comp"><span class="score-comp-k">Disclosed</span><span class="score-comp-v" style="font-size:var(--tx-sm);color:var(--fg-faint)">Per STOCK Act filing</span></div>'}
     </div>
-    \${t.ticker ? \`<a href="/watchlist/\${t.ticker}" data-route class="btn btn-primary" style="margin-top:var(--sp-4);width:100%;">View \${t.ticker} →</a>\` : ''}
+    \${tk ? \`<button id="tk-cta-\${tk}" class="btn btn-primary" style="margin-top:var(--sp-4);width:100%;" onclick="window.tuckViewTicker('\${tk}')">View \${tk} →</button>\` : ''}
     <p style="font-size:var(--tx-xs);color:var(--fg-faint);margin-top:var(--sp-4);">Source: STOCK Act public disclosures · House/Senate filings</p>
   \`;
   window.openSheet({ title: 'Trade detail', html });
+  // Enrich live: company name + price for ANY ticker (incl. ones not in our watchlist)
+  if (tk) {
+    fetch('/api/ticker/' + encodeURIComponent(tk)).then(r => r.json()).then(d => {
+      const nm = document.getElementById('tk-name-' + tk);
+      const px = document.getElementById('tk-px-' + tk);
+      const cta = document.getElementById('tk-cta-' + tk);
+      if (nm) nm.textContent = (d && d.name) ? d.name : tk;
+      if (px && d && d.ok && d.price != null) {
+        const up = (d.changePct || 0) >= 0;
+        px.innerHTML = '<div style="font-weight:700;color:var(--fg);">$' + d.price.toLocaleString() + '</div><div style="color:' + (up?'var(--calm)':'var(--escalate)') + ';font-size:11px;">' + (up?'+':'') + (d.changePct||0).toFixed(2) + '%</div>';
+      } else if (px) { px.textContent = ''; }
+      if (cta) cta.textContent = (d && d.inWatchlist) ? ('View ' + tk + ' →') : ('Quick look: ' + tk + ' →');
+    }).catch(()=>{ const nm=document.getElementById('tk-name-'+tk); if(nm) nm.textContent=tk; });
+  }
+};
+
+// TUCK v2.3 — smart ticker view: rich page if in watchlist, else on-the-fly mini-detail modal
+window.tuckViewTicker = function(tk) {
+  tk = (tk || '').toUpperCase();
+  if (!tk) return;
+  fetch('/api/ticker/' + encodeURIComponent(tk)).then(r => r.json()).then(d => {
+    if (d && d.inWatchlist) { location.href = '/watchlist/' + tk; return; }
+    // Build on-the-fly detail modal for non-watchlist tickers
+    const up = (d && d.changePct || 0) >= 0;
+    const logo = window.tuckLogo(tk, 54);
+    const ok = d && d.ok && d.price != null;
+    const html = \`
+      <div style="display:flex;align-items:center;gap:13px;margin-bottom:var(--sp-4);">
+        \${logo}
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:800;font-size:19px;line-height:1.05;">\${tk}</div>
+          <div style="font-size:13px;color:var(--fg-dim);">\${(d && d.name) || tk}\${d && d.exchange ? ' · ' + d.exchange : ''}</div>
+        </div>
+      </div>
+      \${ok ? \`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:var(--sp-4);">
+        <span style="font-size:26px;font-weight:800;">$\${d.price.toLocaleString()}</span>
+        <span style="font-size:15px;font-weight:700;color:\${up?'var(--calm)':'var(--escalate)'};">\${up?'▲':'▼'} \${(d.change>=0?'+':'')}\${(d.change||0).toFixed(2)} (\${(d.changePct>=0?'+':'')}\${(d.changePct||0).toFixed(2)}%)</span>
+      </div>\` : '<div style="color:var(--fg-faint);font-size:13px;margin-bottom:var(--sp-4);">Live quote unavailable for this symbol right now.</div>'}
+      <p style="font-size:13px;color:var(--fg-dim);line-height:1.5;margin-bottom:var(--sp-4);">\${tk} isn't one of Tuck's tracked tickers, so we pulled this live from public market data. Tuck tracks a focused set of geopolitically-sensitive stocks — this snapshot is here so a congressional trade never dead-ends.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a class="btn btn-secondary" href="/congress?ticker=\${tk}" data-route>All \${tk} trades →</a>
+        <a class="btn btn-secondary" target="_blank" rel="noopener" href="https://finance.yahoo.com/quote/\${tk}">Full data ↗</a>
+      </div>
+    \`;
+    window.openSheet({ title: tk + ' · Quick look', html });
+  }).catch(()=>{ location.href = '/congress?ticker=' + tk; });
 };
 
 (() => {
   const list = document.getElementById('cong-list');
   if (!list) return;
+  // Delegated click → open trade sheet from data-trade attr
+  list.addEventListener('click', (e) => {
+    const row = e.target.closest('.cong-row');
+    if (!row) return;
+    const raw = row.getAttribute('data-trade');
+    try { window.openTradeSheet(JSON.parse(raw)); } catch(_) {}
+  });
   const chips = document.querySelectorAll('.chip-row .chip');
   chips.forEach(c => c.addEventListener('click', () => {
     chips.forEach(x => { x.classList.remove('chip-active'); x.setAttribute('aria-selected', 'false'); });
@@ -3172,7 +3393,7 @@ async function scenariosRoute({ env, url, spa = false }) {
   let scenarios = [];
   try {
     // External worker — keep HTTP fetch but use full absolute URL
-    const r = await fetch('https://scenario-engine.thom-rvr.workers.dev/scenarios', { cf: { cacheTtl: 300 }});
+    const r = await fetch('https://scenario-engine.YOUR-ACCOUNT.workers.dev/scenarios', { cf: { cacheTtl: 300 }});
     if (r.ok) {
       const d = await r.json();
       scenarios = d.scenarios || d || [];
@@ -3215,7 +3436,8 @@ function renderScenario(s) {
   const confLbl = __confLabel(s.confidence);
   const direction = (s.market_direction || '').toLowerCase();
   const dirCls = direction.includes('bull') ? 'dir-bull' : (direction.includes('bear') ? 'dir-bear' : 'dir-neutral');
-  return `<button class="scn-card card card-interactive" onclick='openScenarioSheet(${JSON.stringify(JSON.stringify(s)).slice(1,-1)})' aria-label="${esc(s.title||'')}">
+  const _scnB64 = btoa(unescape(encodeURIComponent(JSON.stringify(s))));
+  return `<button class="scn-card card card-interactive" data-scn="${_scnB64}" aria-label="${esc(s.title||'')}">
     <div class="scn-top">
       <span class="scn-direction ${dirCls}">${esc(direction || 'mixed')}</span>
       <span class="scn-conf">${confPct!=null?confLbl+' \u00b7 '+confPct+'%':'—'} confidence</span>
@@ -3268,6 +3490,38 @@ const SCEN_CSS = `
 `;
 
 const SCEN_JS = `
+(function(){
+  function wireScn(){
+    if(document.__scnWired) return;
+    document.__scnWired = true;
+    document.addEventListener('click', function(e){
+      var card = e.target.closest('.scn-card');
+      if(!card) return;
+      var b64 = card.getAttribute('data-scn');
+      if(!b64) return;
+      try {
+        var jsonStr = decodeURIComponent(escape(atob(b64)));
+        window.openScenarioSheet(jsonStr);
+      } catch(err){ console.error('scn decode err:', err && err.message); }
+    });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireScn);
+  else wireScn();
+  window.addEventListener('tuck:route', wireScn);
+})();
+if(typeof __confPct==='undefined'){ window.__confPct = function(c){
+  if(c==null) return null;
+  if(typeof c==='number') return c<=1?Math.round(c*100):Math.round(c);
+  var s=String(c).toLowerCase().trim();
+  var m={'very low':20,'low':35,'medium':65,'med':65,'moderate':65,'high':88,'very high':95};
+  if(m[s]!=null) return m[s];
+  var n=parseFloat(s); if(!isNaN(n)) return n<=1?Math.round(n*100):Math.round(n);
+  return null;
+}; }
+if(typeof __confLabel==='undefined'){ window.__confLabel = function(c){
+  var p=__confPct(c); if(p==null) return '';
+  return p>=80?'High':p>=50?'Medium':'Low';
+}; }
 window.openScenarioSheet = function(jsonStr) {
   let s;
   try { s = JSON.parse(jsonStr); } catch(e) { return; }
@@ -3303,12 +3557,12 @@ window.openScenarioSheet = function(jsonStr) {
 // ────────────────────────────────────────────────────────────────────
 
 const INDICATORS = [
-  { k: 'fed_rate',     label: 'Fed Funds Rate',   unit: '%',   trendK: null,             explain: 'What banks pay to borrow overnight. Lower = cheaper money everywhere. The Fed sets this.' },
-  { k: 'oil_price',    label: 'Crude Oil (WTI)',  unit: '$',   trendK: 'oil_trend',       explain: 'Per barrel. Drives gasoline, food costs, geopolitics. War in oil regions = price up.' },
-  { k: 'treasury_10y', label: '10-Year Treasury', unit: '%',   trendK: 'treasury_trend',  explain: 'What the US gov pays to borrow for 10 years. Drives mortgage rates and stock valuations.' },
-  { k: 'dxy',          label: 'Dollar Index',     unit: '',    trendK: 'dxy_trend',       explain: 'Strength of the US dollar vs other currencies. Strong dollar hurts exports, helps imports.' },
-  { k: 'vix',          label: 'VIX (Fear Index)', unit: '',    trendK: 'vix_trend',       explain: 'Wall Street\\u2019s fear gauge. Above 30 = panic. Below 15 = complacency.' },
-  { k: 'gold',         label: 'Gold (per oz)',    unit: '$',   trendK: null,              explain: 'The classic safe haven. Up when people don\\u2019t trust paper money or stability.' },
+  { k: 'fed_rate',     label: 'Fed Funds Rate',   unit: '%',   trendK: null,             explain: 'What banks pay to borrow overnight. Lower = cheaper money everywhere. The Fed sets this.', why: 'Every loan, mortgage, and stock valuation is priced off this rate. When the Fed hikes, borrowing gets expensive and risk assets usually fall. When it cuts, money gets cheap and markets tend to rally. The most-watched number in finance.', tickers: 'JPM,BAC,XLF' },
+  { k: 'oil_price',    label: 'Crude Oil (WTI)',  unit: '$',   trendK: 'oil_trend',       explain: 'Per barrel. Drives gasoline, food costs, geopolitics. War in oil regions = price up.', why: 'Oil feeds into gas prices, shipping, food, and inflation. Spikes hit consumers and airlines hard but lift energy producers. Watch it during Middle East conflict — a Hormuz disruption can move it 10%+ in a day.', tickers: 'XOM,CVX,USO' },
+  { k: 'treasury_10y', label: '10-Year Treasury', unit: '%',   trendK: 'treasury_trend',  explain: 'What the US gov pays to borrow for 10 years. Drives mortgage rates and stock valuations.', why: 'The 10-year yield is the benchmark for mortgages, corporate debt, and how much a future dollar of earnings is worth today. Rising yields pressure high-growth/tech stocks most. Falling yields are a tailwind for them.', tickers: 'TLT,IEF' },
+  { k: 'dxy',          label: 'Dollar Index',     unit: '',    trendK: 'dxy_trend',       explain: 'Strength of the US dollar vs other currencies. Strong dollar hurts exports, helps imports.', why: 'A strong dollar makes US exports pricier abroad and shrinks the overseas earnings of multinationals when converted back. It also pressures gold, oil, and emerging markets. A weak dollar does the opposite.', tickers: 'UUP' },
+  { k: 'vix',          label: 'VIX (Fear Index)', unit: '',    trendK: 'vix_trend',       explain: 'Wall Street’s fear gauge. Above 30 = panic. Below 15 = complacency.', why: 'The VIX measures how much volatility traders expect over the next 30 days. It spikes when markets crash and fear takes over, and sinks when investors are calm or complacent. Contrarians watch extremes \u2014 peak fear often marks bottoms.', tickers: 'VXX,UVXY' },
+  { k: 'gold',         label: 'Gold (per oz)',    unit: '$',   trendK: null,              explain: 'The classic safe haven. Up when people don’t trust paper money or stability.', why: 'Gold holds value when faith in currencies, governments, or banks erodes. It rises during war, inflation, and crisis, and tends to move opposite the dollar and real yields. A core hedge for the cautious.', tickers: 'GLD,GDX' },
 ];
 
 async function macroRoute({ env, url, spa = false }) {
@@ -3339,7 +3593,7 @@ async function macroRoute({ env, url, spa = false }) {
     title: 'Macro Corner · Fed, Oil, Treasury, VIX · Tuck',
     description: 'Live macro indicators with plain-English explanations: Fed rate, oil, 10Y treasury, dollar index, VIX, gold.',
     bootstrap: { route: '/macro' },
-    body, pageCSS: MACRO_CSS, spa,
+    body, pageCSS: MACRO_CSS, pageJS: MACRO_JS, spa,
   }), { headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'public, max-age=600' }});
 }
 
@@ -3349,14 +3603,16 @@ function renderCard(ind, macro) {
   const trendCls = trend === 'up' ? 'trend-up' : (trend === 'down' ? 'trend-dn' : 'trend-flat');
   const trendIcon = trend === 'up' ? icon('up') : (trend === 'down' ? icon('down') : icon('flat'));
   const displayValue = v != null ? `${ind.unit === '$' ? '$' : ''}${formatVal(v)}${ind.unit && ind.unit !== '$' ? ind.unit : ''}` : '—';
-  return `<div class="macro-card card">
+  const payload = { label: ind.label, value: displayValue, explain: ind.explain, why: ind.why || '', tickers: ind.tickers || '' };
+  return `<button class="macro-card card card-interactive" data-macro="${esc(JSON.stringify(payload))}" aria-label="${esc(ind.label)} details">
     <div class="macro-card-hdr">
       <span class="macro-card-label">${esc(ind.label)}</span>
       ${trend ? `<span class="macro-trend ${trendCls}">${trendIcon}</span>` : ''}
     </div>
     <div class="macro-card-value">${esc(displayValue)}</div>
     <p class="macro-card-explain">${esc(ind.explain)}</p>
-  </div>`;
+    <span class="macro-tap">Tap to learn more →</span>
+  </button>`;
 }
 
 function formatVal(v) {
@@ -3404,7 +3660,45 @@ const MACRO_CSS = `
   line-height: var(--lh-snug);
   margin: 0;
 }
+.macro-card.card-interactive { cursor: pointer; text-align: left; width: 100%; border: none; }
+.macro-card.card-interactive:hover { border-color: rgba(239,68,68,0.4); }
+.macro-tap { font-size: 10px; font-weight: 700; color: var(--tuck, #EF4444); margin-top: var(--sp-1); opacity: 0.85; }
+
 `;
+
+const MACRO_JS = `
+window.openMacroSheet = function(d) {
+  if (typeof d === 'string') { try { d = JSON.parse(d); } catch(e) { return; } }
+  if (!d) return;
+  const tickers = (d.tickers || '').split(',').map(t => t.trim()).filter(Boolean);
+  const html = \`
+    <div style="margin-bottom:var(--sp-3);">
+      <span class="macro-card-value" style="font-size:var(--tx-xl);">\${d.value || '\u2014'}</span>
+    </div>
+    <h3 style="font-size:var(--tx-md);margin-bottom:var(--sp-2);">What it is</h3>
+    <p style="color:var(--fg-dim);line-height:var(--lh-relaxed);">\${d.explain || ''}</p>
+    \${d.why ? \`<h3 style="font-size:var(--tx-md);margin-top:var(--sp-4);margin-bottom:var(--sp-2);">Why it matters</h3>
+      <p style="color:var(--fg-dim);line-height:var(--lh-relaxed);">\${d.why}</p>\` : ''}
+    \${tickers.length ? \`<h3 style="margin-top:var(--sp-4);font-size:var(--tx-md);">Related tickers</h3>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        \${tickers.map(t => '<a href="/watchlist/' + t + '" data-route class="sig-ticker-pill" style="height:32px;padding:0 12px;font-size:13px;">' + t + '</a>').join('')}
+      </div>\` : ''}
+    <p style="font-size:var(--tx-xs);color:var(--fg-faint);margin-top:var(--sp-4);">Educational only \u2014 not investment advice.</p>
+  \`;
+  window.openSheet({ title: d.label, html });
+};
+(() => {
+  if (document.__macroWired) return;
+  document.__macroWired = true;
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('.macro-card');
+    if (!card) return;
+    const raw = card.getAttribute('data-macro');
+    try { window.openMacroSheet(JSON.parse(raw)); } catch(_) {}
+  });
+})();
+`;
+
 
 // ── routes/learn.js ─────────────────────────────────
 // ────────────────────────────────────────────────────────────────────
@@ -3415,7 +3709,7 @@ async function learnRoute({ env, url, spa = false }) {
   const terms = Object.entries(V2_GLOSSARY).sort((a, b) => a[0].localeCompare(b[0]));
 
   const cards = terms.map(([term, def]) => `
-<button class="learn-card card card-interactive" onclick='openLearnSheet(${JSON.stringify(JSON.stringify({term, def})).slice(1,-1)})' aria-label="${esc(term)}">
+<button class="learn-card card card-interactive" data-term="${esc(term)}" data-def="${esc(def)}" aria-label="${esc(term)}">
   <div class="learn-card-term">${esc(term)}</div>
   <div class="learn-card-def">${esc(def.slice(0, 110))}${def.length > 110 ? '…' : ''}</div>
 </button>`).join('');
@@ -3482,16 +3776,23 @@ const LEARN_CSS = `
 `;
 
 const LEARN_JS = `
-window.openLearnSheet = function(jsonStr) {
-  let d;
-  try { d = JSON.parse(jsonStr); } catch(e) { return; }
-  const html = \`<p style="color:var(--fg);font-size:var(--tx-base);line-height:var(--lh-relaxed);">\${d.def}</p>\`;
-  window.openSheet({ title: d.term, html });
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+window.openLearnSheet = function(term, def) {
+  if (!term) return;
+  const html = \`<p style="color:var(--fg);font-size:var(--tx-base);line-height:var(--lh-relaxed);">\${escHtml(def)}</p>\`;
+  window.openSheet({ title: term, html });
 };
 (() => {
   const search = document.getElementById('learn-search');
   const grid = document.getElementById('learn-grid');
-  if (!search || !grid) return;
+  if (!grid) return;
+  // Event delegation: read term/def straight off the card's data-attrs (browser already decoded them).
+  grid.addEventListener('click', (e) => {
+    const card = e.target.closest('.learn-card');
+    if (!card) return;
+    window.openLearnSheet(card.getAttribute('data-term'), card.getAttribute('data-def'));
+  });
+  if (!search) return;
   search.addEventListener('input', () => {
     const q = search.value.toLowerCase().trim();
     grid.querySelectorAll('.learn-card').forEach(c => {
@@ -3530,9 +3831,19 @@ async function aboutRoute({ env, url, spa = false }) {
 
 <section class="card">
   <h2 class="card-title">${icon('globe')}<span>The mission</span></h2>
-  <p class="about-p">Tuck is a free, open OSINT financial intelligence platform built by <strong>VPDLNY</strong> — the Vulnerable Persons Defense League of NY — a collective of techies and artists who use knowledge and information to help people that powerful entities try to harm or ignore.</p>
-  <p class="about-p">We believe financial intelligence is a public good. Real-time market data, congressional trade tracking, geopolitical OSINT, and plain-English education should not require a $5,000/year Bloomberg terminal, a degree, or a hedge-fund pedigree.</p>
-  <p class="about-p">No login. No ads. No tracking. No PFOF. No advice. Forever.</p>
+  <p class="about-p">Tuck is a free, open OSINT financial-intelligence platform from <strong>Indica Independent Media</strong> — the public face of <strong>VPDLNY</strong>, an anonymous collective of technologists, artists, and researchers who use knowledge and information to defend the people that powerful entities try to harm or ignore.</p>
+  <p class="about-p">We believe financial intelligence is a <strong>public good</strong>. Real-time market data, congressional-trade tracking, geopolitical OSINT, and plain-English education should not require a $25,000-a-year Bloomberg terminal, an Ivy League degree, or a hedge-fund pedigree. The same information that moves markets is hoarded behind paywalls and pedigree — we hand it back, in plain language, to anyone with a phone.</p>
+  <p class="about-p">For decades the financial system has been engineered so the people with the most information win and everyone else plays catch-up. Tuck exists to flatten that. We aggregate only public, lawful, on-the-record sources — then we organize, score, and explain them so a first-generation investor reads the same signal a desk analyst does.</p>
+  <p class="about-p"><strong>No login. No ads. No tracking. No payment-for-order-flow. No "picks." No advice. Free, forever.</strong></p>
+</section>
+
+<section class="card" style="border:1px solid rgba(88,166,255,0.28);background:linear-gradient(180deg,rgba(88,166,255,0.06),rgba(88,166,255,0.015));">
+  <h2 class="card-title" style="color:#58a6ff;">${icon('pulse')}<span>Why now — the AI buildout window</span></h2>
+  <p class="about-p">We are standing at the very start of the <strong>AI hyperscaling era</strong> — the largest coordinated infrastructure buildout in modern economic history. This is not hype; it is capital expenditure you can count.</p>
+  <p class="about-p">In 2025 the four largest hyperscalers — Microsoft, Alphabet, Amazon, and Meta — spent a combined <strong>~$320–400&nbsp;billion</strong> on data centers, chips, networking, and power, and guided that figure <strong>higher</strong> for 2026. Independent analysts (Morgan Stanley, McKinsey, Dell'Oro) project cumulative AI-infrastructure investment of <strong>$3–4&nbsp;trillion through roughly 2030</strong>. Money at that scale doesn't get spent in a quarter — it gets spent across <strong>years</strong>.</p>
+  <p class="about-p">History rhymes. The railroads (1840s–1870s), electrification (1900s–1920s), and the dot-com fiber boom (1996–2001, ~$500&nbsp;billion in fiber alone) all followed the same arc: a once-in-a-generation rush to build the physical layer of a new economy. Each one minted enduring winners — and buried the companies chasing the story instead of the <strong>infrastructure</strong>.</p>
+  <p class="about-p">The dot-com fiber era is the closest analog to today. The lesson from it is blunt: <strong>own the picks and shovels</strong> — the compute, the networking, the power, the edge — not the hype riding on top. The buildout gets built <strong>once</strong>, and consensus puts this cycle running from 2025 through at least <strong>2028–2030</strong> before a digestion phase. That is the window regular people are living through right now, in real time.</p>
+  <p class="about-p" style="color:var(--fg-dim);font-size:13px;">This is context, not a recommendation. Tuck never tells you what to buy. We just make sure you can see the same board the professionals see. <em>Figures are public analyst estimates and shift with each earnings cycle.</em></p>
 </section>
 
 <section class="card">
@@ -3559,15 +3870,25 @@ async function aboutRoute({ env, url, spa = false }) {
 </section>
 
 <section class="card">
-  <h2 class="card-title">${icon('about')}<span>Built by VPDLNY</span></h2>
-  <p class="about-p">VPDLNY is a New York-based collective. We use technology and creative work to defend people that Wall Street, billionaires, and abusive institutions try to silence or exploit.</p>
-  <p class="about-p">If Tuck has helped you, <a href="https://vpdlny.org" target="_blank" rel="noopener">visit us at vpdlny.org</a>.</p>
+  <h2 class="card-title">${icon('about')}<span>Who builds Tuck</span></h2>
+  <p class="about-p">Tuck ships under <strong>Indica Independent Media (IIM)</strong> — the forward-facing banner for <strong>VPDLNY</strong>, a New York-based collective of technologists and artists. We use code and creative work to defend the people that Wall Street, billionaires, and abusive institutions try to silence or exploit.</p>
+  <p class="about-p">We are anonymous on purpose. The work is the credential. Never violence — just sunlight, structure, and shared infrastructure.</p>
 </section>
 
-<section class="card" style="border:1px solid rgba(247,147,26,0.32);background:linear-gradient(180deg,rgba(247,147,26,0.07),rgba(247,147,26,0.02));">
+<section class="about-badge" style="margin:var(--sp-2) 0 var(--sp-4);text-align:center;">
+  <a class="iim-badge-link" href="https://github.com/IndicaIndependent" target="_blank" rel="noopener noreferrer" aria-label="Created with Creative Clarity — Indica Independent Media" style="display:inline-block;width:100%;">
+    <img class="iim-badge-img" src="https://badge.osintnet.uk/badge.svg?dynamic"
+         alt="Created with Creative Clarity — Indica Independent Media"
+         width="400" height="200" loading="lazy"
+         style="width:100%;height:auto;border-radius:14px;display:block;" />
+  </a>
+</section>
+
+<section class="card btc-card" style="border:1px solid rgba(247,147,26,0.32);background:linear-gradient(180deg,rgba(247,147,26,0.07),rgba(247,147,26,0.02));">
   <h2 class="card-title" style="color:#f7931a;">${icon('about')}<span>Support Tuck — Anonymous Bitcoin Only</span></h2>
-  <p class="about-p">We will <strong>never</strong> monetize you. No ads, no data sales, no sponsors, no corporate money. Here's why that matters: anyone who openly takes money from a business is influenced by it — whether they admit it or not. The only way to stay truly independent and pure is to answer to <strong>no one but the people we serve</strong>.</p>
-  <p class="about-p">So we accept just one thing: <strong>anonymous, universal Bitcoin donations</strong> — only from those who can spare it. No Stripe, no Patreon, no processor that can deplatform us or profile our donors. Bitcoin is borderless, permissionless, and final. It's the only money that lets us stay free.</p>
+  <p class="about-p btc-long">We will <strong>never</strong> monetize you. No ads, no data sales, no sponsors, no corporate money. Here's why that matters: anyone who openly takes money from a business is influenced by it — whether they admit it or not. The only way to stay truly independent and pure is to answer to <strong>no one but the people we serve</strong>.</p>
+  <p class="about-p btc-long">So we accept just one thing: <strong>anonymous, universal Bitcoin donations</strong> — only from those who can spare it. No Stripe, no Patreon, no processor that can deplatform us or profile our donors. Bitcoin is borderless, permissionless, and final. It's the only money that lets us stay free.</p>
+  <p class="about-p btc-short"><strong>We never monetize you</strong> — no ads, no data sales, no corporate money. We take just one thing: <strong>anonymous Bitcoin donations</strong>, only from those who can spare it. It's the only money that keeps us free.</p>
   <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;background:rgba(0,0,0,0.28);padding:18px;border-radius:12px;margin-top:8px;">
     <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" title="Open in your Bitcoin wallet" style="width:148px;height:148px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;padding:8px;flex-shrink:0;text-decoration:none;"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAagAAAGoAQAAAAA7yUxtAAADtElEQVR4nO1c2W4cMQwji/n/X2YfdCZ9KQK09miVY3bWayIRBNkUJQ+FH3z9+gloUYv6ONQD0O4EiqIAEHatYVCgcub9dk1FPQAEALRXUSDMN/JX+mDNvN+uqagHCF9RACH7gUB3EUHBHeZevd+uqainv3FvmeMg2OIYl8ZM7rdrKqr7ixBECRlLubmB6kTyfrumoh6gRQ4FEZATD9LWQcLDLGbeb9dUFDJu9BffAbnfrqmo51t02c7FIBZ9vBz2ArumoqBwg1SvNVa3qHkbX8dQkQer6LylyMgEWS2Blt3eb9dUFJUcUEzP+CeMlFmMj+33frsmoyRktiUwhSgAJEWJMncB5t132DURFfGlUguBLythXnPaxtdZlIzMQxAp2jIoKNY/XyPtIu3+dRAVapNnxnJtN4NMyM8z8ja+zqFyV3I/FbGwlc8cxRTu9d//w0V9Q9nOFXUUAAIb94gUTKQkcuspJ1FeiowFsHKtHLT48sqXL5H32zUaRYn0MKOHFQELpogvWlFFG18nUa4fZnKM4oKC3HuRe1EuIt5v11RUZcFBDKms/zs5dL6BnPICu6aiGDQ+b2009jUkj0dr4bjfrqmoph9CfwwV2Y/5Rjjut2sqigoNt/FBAF2G+uLHja87UAxxUH0k2tqsKcA44/LDw6ioJluzISETCUPcQK6LzhrfYtdEFKMF1L70/X3IiOwDL7BrKorVb+3th65oqNEM5dTVDw+jrP8w9yZVa6glYC5zRI+AL5332zUZZVtU1lQAkJFIe2EsWn+FrX8dRVkBUumX9s75RWuQ8mrl9kedRVFxpCGkXpqf6IwwEjO5KPwSuyaisnTM3LP6UB0kYru+wK6pqH4EJbtswnfZjJju2v75w6jWJcryR1Uo1SVf75BafngO9bS+mqYlwrs2vhwqCm++wa6pqBRx6aHTQssmuLYRq+XWK0+jXNOAqYeCpV/eDUA7wddaFA/8h4vqKG9+cmEjmkVDehKNxTPXxtXnD6LyrHIXoJC8sNPCWiBfYNdUVDYBJJkwnTA2K+/5LYF+96+jqDxf2Q99RcchUSQjRnb/Oopq55dNHMwzlf0St97pu/rhMVR7vk09uiH2MiuE0QMv6svLNw6i2vNtqvGaqKfb+O5lzaNwkni/XR+CUvRg57MC7MYKlVlleZ1dM1FZ4rJKcpRYaCRReerobXZNQylOMMMapCBQcnmX0UfvrH/5/ElUFLjyQF6ULbPjJk4SdSJyv11TUaW5//u/tahFfRrqNx3fXuehZ/6tAAAAAElFTkSuQmCC" alt="Tuck Bitcoin donation QR — scan to donate" style="width:100%;height:100%;image-rendering:pixelated;"/></a>
     <div style="flex:1;min-width:240px;">
@@ -3596,7 +3917,7 @@ async function aboutRoute({ env, url, spa = false }) {
 
 <section class="home-footer" style="margin-top:var(--sp-6);">
   <p>© 2026 VPDLNY · Open source · Free forever</p>
-  <p>Tuck v2.0 · Built mobile-first by the people, for the people</p>
+  <p>Tuck v2.0 · Built mobile-first</p>
 </section>
 `;
 
@@ -3661,6 +3982,7 @@ async function routeV2(request, env, ctx) {
   if (path === '/ravid')     return ravidRoute({ env, url, spa });
   if (path === '/congress')  return congressRoute({ env, url, spa });
   if (path === '/scores')    return scoresRoute({ env, url, spa });
+  if (path === '/war3')      return war3Route({ env, url, spa });
   if (path === '/heatmap')   return heatmapRoute({ env, url, spa });
   if (path === '/scenarios') return scenariosRoute({ env, url, spa });
   if (path === '/macro')     return macroRoute({ env, url, spa });
@@ -3688,14 +4010,184 @@ function isV2Request(request) {
 //   if (TuckV2.isV2(request)) { const r = await TuckV2.route(request, env, ctx); if (r) return r; }
 const TuckV2 = { isV2: isV2Request, route: routeV2 };
 
+
+// ═══════════ WAR 3.0 INDEX PAGE (added Jun 5, 2026) ═══════════
+const WAR3_API = "https://tucks-war3.YOUR-ACCOUNT.workers.dev";
+
+const WAR3_CSS = `
+.w3-wrap{display:flex;flex-direction:column;gap:var(--sp-4);}
+.w3-gauge-card{display:flex;flex-direction:column;align-items:center;text-align:center;padding:var(--sp-5) var(--sp-4);}
+.w3-gauge{width:100%;max-width:300px;}
+.w3-score{font-size:54px;font-weight:800;line-height:1;letter-spacing:-1px;margin-top:4px;}
+.w3-band{font-size:15px;font-weight:700;letter-spacing:1.5px;margin-top:6px;text-transform:uppercase;}
+.w3-delta{font-size:13px;color:var(--fg-dim);margin-top:8px;font-weight:600;}
+.w3-updated{font-size:11px;color:var(--fg-dim);margin-top:4px;}
+.w3-theatres{display:flex;flex-direction:column;gap:var(--sp-3);}
+.w3-th{display:flex;flex-direction:column;gap:6px;}
+.w3-th-top{display:flex;justify-content:space-between;align-items:baseline;}
+.w3-th-name{font-weight:700;font-size:15px;}
+.w3-th-val{font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;}
+.w3-bar{height:9px;border-radius:6px;background:rgba(255,255,255,0.07);overflow:hidden;}
+.w3-bar-fill{height:100%;border-radius:6px;transition:width .6s cubic-bezier(.4,0,.2,1);}
+.w3-driver{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
+.w3-driver:last-child{border-bottom:none;}
+.w3-driver-dot{flex:none;width:8px;height:8px;border-radius:50%;margin-top:6px;}
+.w3-driver-txt{flex:1;font-size:14px;line-height:1.4;}
+.w3-driver-meta{font-size:11px;color:var(--fg-dim);margin-top:2px;}
+.w3-spark{width:100%;height:48px;margin-top:var(--sp-2);}
+.w3-cred{display:flex;flex-wrap:wrap;gap:var(--sp-3);font-size:12px;color:var(--fg-dim);}
+.w3-cred-item{display:flex;flex-direction:column;}
+.w3-cred-item b{color:var(--fg);font-size:14px;font-weight:700;}
+.w3-warmup{font-size:12px;color:#e3b341;background:rgba(227,179,65,0.1);border:1px solid rgba(227,179,65,0.25);border-radius:8px;padding:8px 11px;}
+.w3-err{font-size:13px;color:var(--fg-dim);text-align:center;padding:var(--sp-4);}
+.w3-support{text-align:center;border:1px solid rgba(247,147,26,0.25);background:linear-gradient(180deg,rgba(247,147,26,0.06),transparent);}
+.w3-support-lead{font-size:14px;margin:0 0 6px;}
+.w3-support-sub{font-size:12px;color:var(--fg-dim);margin:0 0 var(--sp-3);}
+.w3-support-btn{display:inline-block;font-size:13px;font-weight:700;color:#0d1117;background:#f7931a;padding:9px 16px;border-radius:8px;text-decoration:none;}
+.w3-support-btn:active{transform:translateY(1px);}
+`;
+
+function w3BandColor(b) { return { CRITICAL: "#f85149", HIGH: "#fb8500", ELEVATED: "#e3b341", CALM: "#3fb950" }[b] || "#8b949e"; }
+function w3BandEmoji(b) { return { CRITICAL: "🟥", HIGH: "🟧", ELEVATED: "🟨", CALM: "🟩" }[b] || "⬜"; }
+function w3Band(s) { return s >= 76 ? "CRITICAL" : s >= 56 ? "HIGH" : s >= 36 ? "ELEVATED" : "CALM"; }
+
+function w3Gauge(score, color) {
+  const cx = 150, cy = 150, r = 120;
+  const a0 = Math.PI, a1 = 0;
+  const frac = Math.max(0, Math.min(1, score / 100));
+  const ang = a0 + (a1 - a0) * frac;
+  const polar = (a, rad) => [cx + rad * Math.cos(a), cy - rad * Math.sin(a)];
+  const [sx, sy] = polar(a0, r), [ex, ey] = polar(a1, r);
+  const [px, py] = polar(ang, r);
+  const trackArc = `M ${sx} ${sy} A ${r} ${r} 0 0 1 ${ex} ${ey}`;
+  const valArc = `M ${sx} ${sy} A ${r} ${r} 0 0 1 ${px} ${py}`;
+  const [nx, ny] = polar(ang, r - 16);
+  return `<svg class="w3-gauge" viewBox="0 0 300 175" role="img" aria-label="WAR 3.0 score ${score} of 100">
+    <path d="${trackArc}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="16" stroke-linecap="round"/>
+    <path d="${valArc}" fill="none" stroke="${color}" stroke-width="16" stroke-linecap="round"/>
+    <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="${color}" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="7" fill="${color}"/>
+    <text x="38" y="168" fill="#8b949e" font-size="11">0</text>
+    <text x="252" y="168" fill="#8b949e" font-size="11">100</text>
+  </svg>`;
+}
+
+function w3Spark(history) {
+  if (!history || history.length < 2) return "";
+  const pts = history.slice().reverse().map(h => h.score);
+  const w = 300, h = 48, pad = 4;
+  const min = Math.min(...pts), max = Math.max(...pts), span = Math.max(1, max - min);
+  const xs = (i) => pad + (i * (w - 2 * pad)) / (pts.length - 1);
+  const ys = (v) => h - pad - ((v - min) / span) * (h - 2 * pad);
+  const d = pts.map((v, i) => `${i ? "L" : "M"} ${xs(i).toFixed(1)} ${ys(v).toFixed(1)}`).join(" ");
+  const last = pts[pts.length - 1], lc = w3BandColor(w3Band(last));
+  return `<svg class="w3-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-label="score trend">
+    <path d="${d}" fill="none" stroke="${lc}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${xs(pts.length - 1).toFixed(1)}" cy="${ys(last).toFixed(1)}" r="3" fill="${lc}"/>
+  </svg>`;
+}
+
+async function war3Route({ env, url, spa = false }) {
+  let data = null, hist = null, errMsg = null;
+  try {
+    const [sR, hR] = await Promise.all([
+      fetch(`${WAR3_API}/score`, { cf: { cacheTtl: 120 } }),
+      fetch(`${WAR3_API}/history?days=30`, { cf: { cacheTtl: 300 } }),
+    ]);
+    if (sR.ok) data = await sR.json();
+    if (hR.ok) hist = (await hR.json()).history || [];
+  } catch (e) { errMsg = String(e && e.message || e); }
+
+  let inner;
+  if (!data) {
+    inner = `<section class="card"><div class="w3-err">⚠️ WAR 3.0 index temporarily unavailable.${errMsg ? `<br><span style="font-size:11px">${esc(errMsg)}</span>` : ""}</div></section>`;
+  } else {
+    const color = w3BandColor(data.band);
+    const dl = data.delta;
+    const deltaStr = dl == null ? "" : `${dl > 0 ? "▲" : dl < 0 ? "▼" : "▬"} ${Math.abs(dl).toFixed(1)} since yesterday`;
+    const theatres = Object.entries(data.components || {}).sort((a, b) => b[1].P - a[1].P);
+    const thHtml = theatres.map(([t, c]) => {
+      const cc = c.P >= 76 ? "#f85149" : c.P >= 56 ? "#fb8500" : c.P >= 36 ? "#e3b341" : "#3fb950";
+      return `<div class="w3-th">
+        <div class="w3-th-top"><span class="w3-th-name">${esc(t.charAt(0) + t.slice(1).toLowerCase())}</span><span class="w3-th-val" style="color:${cc}">${Math.round(c.P)}</span></div>
+        <div class="w3-bar"><div class="w3-bar-fill" style="width:${Math.round(c.P)}%;background:${cc}"></div></div>
+      </div>`;
+    }).join("");
+    const drivers = (data.drivers || []).slice(0, 5).map(d => {
+      const cc = d.contrib >= 8 ? "#f85149" : d.contrib >= 5 ? "#fb8500" : "#e3b341";
+      return `<div class="w3-driver">
+        <span class="w3-driver-dot" style="background:${cc}"></span>
+        <div class="w3-driver-txt">${esc(d.headline)}
+          <div class="w3-driver-meta">${esc(d.theatre)} · intensity ${d.contrib.toFixed(1)} · ${d.ageDays < 1 ? "today" : Math.round(d.ageDays) + "d ago"}</div>
+        </div>
+      </div>`;
+    }).join("");
+    const spark = w3Spark(hist);
+    const updated = data.date ? `as of ${esc(String(data.date))}` : "";
+    const warmup = data.warmupReady === false ? `<div class="w3-warmup">⚠️ Baseline still calibrating — early readings may be noisy.</div>` : "";
+    inner = `
+    <section class="card w3-gauge-card">
+      ${w3Gauge(data.score, color)}
+      <div class="w3-score" style="color:${color}">${data.score.toFixed(0)}<span style="font-size:22px;color:var(--fg-dim)">/100</span></div>
+      <div class="w3-band" style="color:${color}">${w3BandEmoji(data.band)} ${esc(data.band)}</div>
+      ${deltaStr ? `<div class="w3-delta">${deltaStr}</div>` : ""}
+      <div class="w3-updated">${updated}</div>
+      ${spark}
+    </section>
+    ${warmup}
+    <section class="card">
+      <h2 class="card-title">${icon('globe')}<span>Theatres</span></h2>
+      <div class="w3-theatres">${thHtml}</div>
+    </section>
+    <section class="card">
+      <h2 class="card-title">${icon('warning')}<span>Top drivers</span></h2>
+      ${drivers || '<div class="w3-err">No active drivers.</div>'}
+    </section>
+    <section class="card">
+      <h2 class="card-title">${icon('learn')}<span>How it works</span></h2>
+      <p class="about-p" style="font-size:14px;">The <strong>WAR 3.0 Index</strong> scores live geopolitical conflict on a 0–100 scale. It reads vetted OSINT events, weights each by the <strong>Goldstein conflict scale</strong> (a peer-reviewed measure from academic conflict research), decays older events, and blends three theatres — Hormuz, Ukraine, and Broader — against a fixed statistical baseline so the number means the same thing over time.</p>
+      <div class="w3-cred">
+        <div class="w3-cred-item"><b>Goldstein</b>event intensity</div>
+        <div class="w3-cred-item"><b>EWMA decay</b>3-day half-life</div>
+        <div class="w3-cred-item"><b>Fixed baseline</b>comparable over time</div>
+        <div class="w3-cred-item"><b>Hill-saturated</b>resists spam</div>
+      </div>
+      <p class="about-p" style="font-size:12px;color:var(--fg-dim);margin-top:var(--sp-3);">Context, not advice. The index measures conflict intensity — it does not predict prices or tell you what to trade.</p>
+    </section>
+    <section class="card w3-support">
+      <p class="w3-support-lead">${icon('zap') || '⚡'} <strong>This index is free, ad-free, and built by one researcher.</strong></p>
+      <p class="w3-support-sub">No VC, no gov funding. If WAR 3.0 serves you, a tip keeps it live.</p>
+      <a class="w3-support-btn" href="https://support.warheatmap.app" target="_blank" rel="noopener">⚡ Support — tips@warheatmap.app</a>
+    </section>`;
+  }
+
+  const body = `
+<header class="shdr">
+  <div class="shdr-row">
+    <h1 class="shdr-title">${icon('warning')}<span>WAR 3.0 Index</span></h1>
+  </div>
+  <p class="shdr-sub">Live geopolitical conflict, scored 0–100.</p>
+</header>
+<div class="w3-wrap">${inner}</div>`;
+
+  return new Response(renderShell({
+    path: '/war3',
+    title: 'WAR 3.0 Index · Live Conflict Score · Tuck',
+    description: 'A live 0–100 geopolitical conflict index built on the Goldstein scale and vetted OSINT. Free, no login.',
+    bootstrap: { route: '/war3' },
+    body, pageCSS: WAR3_CSS, spa,
+  }), { headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'public, max-age=120' } });
+}
+// ═══════════ END WAR 3.0 PAGE ═══════════
+
 // ═══════════ TUCK v2 BUNDLE END ═══════════
 
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
 // worker.js
-var INGEST_URL = "https://geoint-ingest-worker.thom-rvr.workers.dev";
-var PRICE_URL = "https://geoint-price-worker.thom-rvr.workers.dev";
+var INGEST_URL = "https://geoint-ingest-worker.YOUR-ACCOUNT.workers.dev";
+var PRICE_URL = "https://geoint-price-worker.YOUR-ACCOUNT.workers.dev";
 var CAPWATCH = "https://capwatch.osintnet.uk";
 var WATCHLIST = [
   { ticker: "NVDA", name: "Nvidia", sector: "Semiconductor", desc: "Designs the AI chips that power ChatGPT, data centers, and autonomous vehicles. The backbone of the AI revolution.", geo: "China/Taiwan", cat: "semi" },
@@ -3849,7 +4341,7 @@ function buildHTML() {
       "@type": "NewsMediaOrganization",
       "@id": "https://tuck.osintnet.uk/#organization",
       "name": "Indica Independent Media",
-      "alternateName": ["VPDLNY", "Vulnerable Persons Defense League of New York"],
+      "alternateName": ["VPDLNY", "Indica Independent Media", "IIM"],
       "url": "https://tuck.osintnet.uk/",
       "logo": {
         "@type": "ImageObject",
@@ -3901,7 +4393,7 @@ function buildHTML() {
         {
           "@type": "Question",
           "name": "Who built Tuck?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Tuck is built and maintained by Indica Independent Media and VPDLNY (Vulnerable Persons Defense League of New York) — an anonymous collective of technologists, artists, and researchers based in Staten Island, New York. The project is open source and community-supported." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Tuck is built and maintained by Indica Independent Media (IIM), the public face of VPDLNY — an anonymous collective of technologists, artists, and researchers based in Staten Island, New York. The project is open source and community-supported." }
         },
         {
           "@type": "Question",
@@ -4098,7 +4590,7 @@ main{max-width:1000px;margin:0 auto;padding:0 16px 60px}
 
 /* \u2500\u2500 MACRO \u2500\u2500 */
 #macro-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px}
-.freshness-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;margin-left:8px;border-radius:10px;background:#1c2128;border:1px solid #30363d;color:#7d8590;font-size:10px;font-weight:500;font-family:monospace;letter-spacing:.3px;vertical-align:middle;cursor:help;transition:all .15s}.freshness-pill:hover{border-color:#58a6ff;color:#c9d1d9}.freshness-pill.fresh{border-color:#238636;color:#3fb950}.freshness-pill.stale{border-color:#7d4e00;color:#d29922}.freshness-pill .fp-dot{width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 4px currentColor;opacity:.9}
+.freshness-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;margin-left:8px;border-radius:10px;background:#1c2128;border:1px solid #30363d;color:#7d8590;font-size:10px;font-weight:500;font-family:monospace;letter-spacing:.3px;vertical-align:middle;cursor:help;transition:all .15s}.freshness-pill:hover{border-color:#58a6ff;color:#c9d1d9}.freshness-pill.fresh{border-color:#238636;color:#3fb950}.freshness-pill.stale{border-color:#7d4e00;color:#d29922}.market-status{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;margin-right:8px;border-radius:10px;font-size:10px;font-weight:700;font-family:monospace;letter-spacing:.4px;text-transform:uppercase;border:1px solid #30363d;color:#7d8590;vertical-align:middle}.market-status::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 5px currentColor}.market-status.ms-open{border-color:#238636;color:#3fb950}.market-status.ms-pre{border-color:#1f6feb;color:#58a6ff}.market-status.ms-after{border-color:#7d4e00;color:#d29922}.market-status.ms-closed{border-color:#484f58;color:#6e7681}.freshness-pill .fp-dot{width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 4px currentColor;opacity:.9}
 
 .macro-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
 .macro-card.clickable{cursor:pointer;transition:all 0.15s}.macro-card.clickable:hover{border-color:#58a6ff;background:#1c2128;transform:translateY(-1px)}.macro-card.clickable::after{content:"\u27A4";position:absolute;top:8px;right:10px;color:#58a6ff;opacity:0;transition:opacity 0.15s;font-size:0.7rem}.macro-card{position:relative}.macro-card.clickable:hover::after{opacity:1}
@@ -4944,7 +5436,7 @@ footer{background:rgba(0,0,0,0.3);border-top:1px solid var(--border);padding:28p
   <div class="footer-grid">
     <div class="footer-col">
       <h4>Tuck</h4>
-      <p>Built by <a href="https://discord.gg/vpdlny" target="_blank">VPDLNY</a> \u2014 the Vulnerable Persons Defense League of New York. A collective of technologists and artists who use knowledge as a tool to defend vulnerable communities.</p>
+      <p>Built by <strong>Indica Independent Media</strong> — the public face of <a href="https://discord.gg/vpdlny" target="_blank">VPDLNY</a>. A collective of technologists and artists who use knowledge as a tool to defend vulnerable communities.</p>
       <p style="margin-top:8px">This platform runs entirely on free infrastructure. It costs nothing to operate and will never be paywalled.</p>
       <div class="vpdlny-badge">\u{1F6E1}\uFE0F A VPDLNY Project \xB7 osintnet.uk</div>
     </div>
@@ -6379,7 +6871,7 @@ window.addEventListener('DOMContentLoaded', function() {
       <div class="about-vpdlny-block">
         <div class="about-vpdlny-mark">🛡️</div>
         <h3>VPDLNY</h3>
-        <div class="about-sub">Vulnerable Persons Defense League of New York</div>
+        <div class="about-sub">Indica Independent Media · VPDLNY</div>
         <p>A collective. Not a non-profit, not a foundation, not a brand. Technologists, artists, researchers, and people who simply showed up. Based in the parts of New York the tourism boards don&rsquo;t print. Our work is to put information in the hands of people who shouldn&rsquo;t have had to ask for it twice.</p>
         <p class="about-creed">We use knowledge. Never violence. Sunlight is the disinfectant. The receipts are the strategy.</p>
       </div>
@@ -6393,7 +6885,7 @@ window.addEventListener('DOMContentLoaded', function() {
         </details>
         <details>
           <summary>Who runs this?</summary>
-          <p>VPDLNY. The Vulnerable Persons Defense League of New York, under the editorial banner of Indica Independent Media. We are anonymous on purpose. The work is the credential.</p>
+          <p>Indica Independent Media — the public face of VPDLNY. We are anonymous on purpose. The work is the credential.</p>
         </details>
         <details>
           <summary>How is it free?</summary>
@@ -6410,7 +6902,7 @@ window.addEventListener('DOMContentLoaded', function() {
       </div>
 
       <div class="about-footer-row">
-        <span>indicaindependent.media &middot; vpdlny.org &middot; osintnet.uk</span>
+        <span>indicaindependent.media &middot; osintnet.uk</span>
         <span class="about-creed-small">&ldquo;What they hoard, we hand back.&rdquo;</span>
       </div>
     </div>
@@ -6578,7 +7070,7 @@ var PRIVACY_HTML = buildLegalPage("Privacy Policy", `
 <div class="callout"><p><strong>The short version:</strong> We collect almost nothing about you. No account. No tracking. No selling. This page explains exactly what little we do and don't do.</p></div>
 
 <h2>1. Who We Are</h2>
-<p>Tuck is a free public financial intelligence and education platform operated by <strong>VPDLNY (Vulnerable Persons Defense League of New York)</strong>, a collective of independent technologists and artists. We are not a financial institution, broker-dealer, investment advisor, or money services business.</p>
+<p>Tuck is a free public financial-intelligence and education platform operated by <strong>Indica Independent Media (IIM)</strong>, the public face of <strong>VPDLNY</strong> — a collective of independent technologists and artists. We are not a financial institution, broker-dealer, investment advisor, or money services business.</p>
 <p>Contact: <a href="mailto:privacy@osintnet.uk">privacy@osintnet.uk</a></p>
 
 <h2>2. What We Collect \u2014 And What We Don't</h2>
@@ -6661,7 +7153,7 @@ var TOS_HTML = buildLegalPage("Terms of Service", `
 
 <h2>2. What the Platform Is</h2>
 <p>Tuck is a <strong>free, public, educational financial intelligence platform</strong>. It aggregates and displays publicly available financial data, news, regulatory filings, and macroeconomic indicators for educational purposes.</p>
-<p>The Platform is operated by VPDLNY (Vulnerable Persons Defense League of New York), a non-commercial collective. It is not affiliated with any brokerage, financial institution, or investment firm.</p>
+<p>The Platform is operated by Indica Independent Media (IIM), the public face of VPDLNY — a non-commercial collective. It is not affiliated with any brokerage, financial institution, or investment firm.</p>
 
 <h2>3. NOT Investment Advice \u2014 Critical Disclaimer</h2>
 <div class="warn"><p>Nothing on Tuck constitutes, or should be construed as:</p></div>
@@ -6732,7 +7224,7 @@ var TOS_HTML = buildLegalPage("Terms of Service", `
 `);
 var ABOUT_HTML = buildLegalPage("About", `
 <h1>About Tuck</h1>
-<div class="meta">Built by VPDLNY · Staten Island, New York · Free forever · Open source · Anonymous</div>
+<div class="meta">Indica Independent Media · VPDLNY · Staten Island, New York · Free forever · Open source · Anonymous</div>
 
 <div class="callout">
 <p><strong>"Information was never meant to be hoarded."</strong><br/>Tuck is a free, open-source financial intelligence platform built for communities that Wall Street ignores. Named for <em>Friar Tuck</em>, the monk who left the abbey to feed the people — we left the velvet rope of paid terminals to give you the same data hedge funds pay a fortune for.</p>
@@ -6766,7 +7258,7 @@ var ABOUT_HTML = buildLegalPage("About", `
 <p>Every news signal is tagged with a market impact score (0–1) and a geopolitical region. Filter by Iran/Hormuz, China/Taiwan, Ukraine, Israel/Gaza, Domestic, or Fed/Macro. See what’s actually moving the needle in real time.</p>
 
 <h2>Who We Are</h2>
-<p>VPDLNY — the Vulnerable Persons Defense League of New York — is a loose collective of techies, artists, researchers, and OSINT practitioners. We use information and knowledge to defend vulnerable people against powerful entities. Never violence. Just sunlight, structure, and shared infrastructure.</p>
+<p>VPDLNY is a loose collective of techies, artists, researchers, and OSINT practitioners, operating publicly as Indica Independent Media (IIM). We use information and knowledge to defend vulnerable people against powerful entities. Never violence. Just sunlight, structure, and shared infrastructure.</p>
 <p>Tuck is one of our public-facing tools. Other projects: <a href="https://warheatmap.app" target="_blank">War Heat Map</a> (global conflict tracking), <a href="https://capwatch.osintnet.uk" target="_blank">CapWatch</a> (congressional trade intel), and several private tools for researchers and defenders.</p>
 
 <h2>Technical Foundation</h2>
@@ -7151,7 +7643,7 @@ var worker_default = {
 
         // ─── SYSTEM PROMPT ─────────────────────────────────────────────────────
         const systemPromptBase = [
-          "You are Tuck — the AI guide of Tuck (tuck.osintnet.uk), a free OSINT and market education platform built by VPDLNY (Vulnerable Persons Defense League of NY).",
+          "You are Tuck — the AI guide of Tuck (tuck.osintnet.uk), a free OSINT and market-education platform from Indica Independent Media (IIM), the public face of VPDLNY.",
           "",
           "PERSONA: You speak with the calm confidence of Friar Tuck — a guardian of common folk against the powerful. Warm, plain-spoken, never condescending, never preachy. Use everyday language. Short paragraphs.",
           "",
@@ -7211,6 +7703,50 @@ var worker_default = {
       }
     }
 
+    // ── TUCK v2.3 — Universal ticker lookup (works for ANY symbol, incl. Congress tickers not in watchlist) ──
+    if (path.startsWith("/api/ticker/")) {
+      const sym = decodeURIComponent(path.slice("/api/ticker/".length)).toUpperCase().replace(/[^A-Z0-9.\-]/g, "").slice(0, 12);
+      if (!sym) return new Response(JSON.stringify({ ok: false, error: "no symbol" }), { status: 400, headers: { "Content-Type": "application/json" } });
+      const cacheKey = "cache:ticker:" + sym;
+      try {
+        const cached = await env.TUCK_KV.get(cacheKey, "json");
+        if (cached) return new Response(JSON.stringify(cached), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
+      } catch(_) {}
+      try {
+        const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=5d`,
+          { headers: { "User-Agent": "Mozilla/5.0 (compatible; PeoplesMarket/1.0)" }, cf: { cacheTtl: 300 } });
+        if (!r.ok) throw new Error("yahoo " + r.status);
+        const d = await r.json();
+        const m = d.chart?.result?.[0]?.meta;
+        if (!m || m.regularMarketPrice == null) throw new Error("no meta");
+        const prev = m.chartPreviousClose ?? m.previousClose ?? m.regularMarketPrice;
+        const price = m.regularMarketPrice;
+        const chg = price - prev;
+        const chgPct = prev ? (chg / prev) * 100 : 0;
+        // Is it in our curated watchlist? (richer context if so)
+        const inWl = V2_WATCHLIST.find(w => w.ticker === sym) || null;
+        const out = {
+          ok: true, symbol: sym,
+          name: m.longName || m.shortName || (inWl ? inWl.name : sym),
+          price: Math.round(price * 100) / 100,
+          change: Math.round(chg * 100) / 100,
+          changePct: Math.round(chgPct * 100) / 100,
+          currency: m.currency || "USD",
+          exchange: m.fullExchangeName || m.exchangeName || "",
+          inWatchlist: !!inWl,
+          sector: inWl ? inWl.sector : null,
+          desc: inWl ? inWl.desc : null,
+          ts: Date.now()
+        };
+        try { await env.TUCK_KV.put(cacheKey, JSON.stringify(out), { expirationTtl: 600 }); } catch(_) {}
+        return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
+      } catch(e) {
+        const inWl = V2_WATCHLIST.find(w => w.ticker === sym) || null;
+        return new Response(JSON.stringify({ ok: false, symbol: sym, name: inWl ? inWl.name : sym, inWatchlist: !!inWl, error: String(e?.message || e) }),
+          { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+    }
+
     if (path === "/api/prices") {
       try {
         // ⚡ Persistent cache — refreshed every 10min during session by tuck-cache-refresh worker
@@ -7233,7 +7769,7 @@ var worker_default = {
           const isStale = ageMin > staleThreshold;
           // If stale during market hours, fire a background refresh (no await — don't block user)
           if (isStale && inSession && env.TUCK_REFRESH_SECRET) {
-            ctx.waitUntil(fetch('https://tuck-cache-refresh.thom-rvr.workers.dev/refresh', {
+            ctx.waitUntil(fetch('https://tuck-cache-refresh.YOUR-ACCOUNT.workers.dev/refresh', {
               method: 'POST',
               headers: { 'Authorization': 'Bearer ' + env.TUCK_REFRESH_SECRET }
             }).catch(()=>{}));
@@ -7414,7 +7950,7 @@ var worker_default = {
 
     if (path === "/api/scenarios") {
       try {
-        const r = await fetch('https://scenario-engine.thom-rvr.workers.dev/scenarios', { cf: { cacheTtl: 300 }});
+        const r = await fetch('https://scenario-engine.YOUR-ACCOUNT.workers.dev/scenarios', { cf: { cacheTtl: 300 }});
         const d = await r.json();
         return new Response(JSON.stringify(d), {headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=300'}});
       } catch(e) {
@@ -7434,7 +7970,7 @@ var worker_default = {
         }
         // Per-ticker history (?ticker=NVDA) — pass through to live worker (small payload, fine)
         const qs = ticker ? ('?ticker=' + encodeURIComponent(ticker)) : '';
-        const r = await fetch('https://tucks-score.thom-rvr.workers.dev/scores' + qs, { cf: { cacheTtl: 300 }});
+        const r = await fetch('https://tucks-score.YOUR-ACCOUNT.workers.dev/scores' + qs, { cf: { cacheTtl: 300 }});
         const d = await r.json();
         return new Response(JSON.stringify(d), {headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=300'}});
       } catch(e) {
