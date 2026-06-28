@@ -3393,7 +3393,7 @@ async function scenariosRoute({ env, url, spa = false }) {
   let scenarios = [];
   try {
     // External worker — keep HTTP fetch but use full absolute URL
-    const r = await fetch('https://scenario-engine.YOUR-ACCOUNT.workers.dev/scenarios', { cf: { cacheTtl: 300 }});
+    const r = await fetch('https://scenario-engine.thom-rvr.workers.dev/scenarios', { cf: { cacheTtl: 300 }});
     if (r.ok) {
       const d = await r.json();
       scenarios = d.scenarios || d || [];
@@ -3885,18 +3885,18 @@ async function aboutRoute({ env, url, spa = false }) {
 </section>
 
 <section class="card btc-card" style="border:1px solid rgba(247,147,26,0.32);background:linear-gradient(180deg,rgba(247,147,26,0.07),rgba(247,147,26,0.02));">
-  <h2 class="card-title" style="color:#f7931a;">${icon('about')}<span>Support Tuck — Anonymous Bitcoin Only</span></h2>
+  <h2 class="card-title" style="color:#f7931a;">${icon('about')}<span>Support Tuck — Bitcoin &amp; Lightning ⚡</span></h2>
   <p class="about-p btc-long">We will <strong>never</strong> monetize you. No ads, no data sales, no sponsors, no corporate money. Here's why that matters: anyone who openly takes money from a business is influenced by it — whether they admit it or not. The only way to stay truly independent and pure is to answer to <strong>no one but the people we serve</strong>.</p>
   <p class="about-p btc-long">So we accept just one thing: <strong>anonymous, universal Bitcoin donations</strong> — only from those who can spare it. No Stripe, no Patreon, no processor that can deplatform us or profile our donors. Bitcoin is borderless, permissionless, and final. It's the only money that lets us stay free.</p>
   <p class="about-p btc-short"><strong>We never monetize you</strong> — no ads, no data sales, no corporate money. We take just one thing: <strong>anonymous Bitcoin donations</strong>, only from those who can spare it. It's the only money that keeps us free.</p>
   <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;background:rgba(0,0,0,0.28);padding:18px;border-radius:12px;margin-top:8px;">
-    <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" title="Open in your Bitcoin wallet" style="width:148px;height:148px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;padding:8px;flex-shrink:0;text-decoration:none;"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAagAAAGoAQAAAAA7yUxtAAADtElEQVR4nO1c2W4cMQwji/n/X2YfdCZ9KQK09miVY3bWayIRBNkUJQ+FH3z9+gloUYv6ONQD0O4EiqIAEHatYVCgcub9dk1FPQAEALRXUSDMN/JX+mDNvN+uqagHCF9RACH7gUB3EUHBHeZevd+uqainv3FvmeMg2OIYl8ZM7rdrKqr7ixBECRlLubmB6kTyfrumoh6gRQ4FEZATD9LWQcLDLGbeb9dUFDJu9BffAbnfrqmo51t02c7FIBZ9vBz2ArumoqBwg1SvNVa3qHkbX8dQkQer6LylyMgEWS2Blt3eb9dUFJUcUEzP+CeMlFmMj+33frsmoyRktiUwhSgAJEWJMncB5t132DURFfGlUguBLythXnPaxtdZlIzMQxAp2jIoKNY/XyPtIu3+dRAVapNnxnJtN4NMyM8z8ja+zqFyV3I/FbGwlc8cxRTu9d//w0V9Q9nOFXUUAAIb94gUTKQkcuspJ1FeiowFsHKtHLT48sqXL5H32zUaRYn0MKOHFQELpogvWlFFG18nUa4fZnKM4oKC3HuRe1EuIt5v11RUZcFBDKms/zs5dL6BnPICu6aiGDQ+b2009jUkj0dr4bjfrqmoph9CfwwV2Y/5Rjjut2sqigoNt/FBAF2G+uLHja87UAxxUH0k2tqsKcA44/LDw6ioJluzISETCUPcQK6LzhrfYtdEFKMF1L70/X3IiOwDL7BrKorVb+3th65oqNEM5dTVDw+jrP8w9yZVa6glYC5zRI+AL5332zUZZVtU1lQAkJFIe2EsWn+FrX8dRVkBUumX9s75RWuQ8mrl9kedRVFxpCGkXpqf6IwwEjO5KPwSuyaisnTM3LP6UB0kYru+wK6pqH4EJbtswnfZjJju2v75w6jWJcryR1Uo1SVf75BafngO9bS+mqYlwrs2vhwqCm++wa6pqBRx6aHTQssmuLYRq+XWK0+jXNOAqYeCpV/eDUA7wddaFA/8h4vqKG9+cmEjmkVDehKNxTPXxtXnD6LyrHIXoJC8sNPCWiBfYNdUVDYBJJkwnTA2K+/5LYF+96+jqDxf2Q99RcchUSQjRnb/Oopq55dNHMwzlf0St97pu/rhMVR7vk09uiH2MiuE0QMv6svLNw6i2vNtqvGaqKfb+O5lzaNwkni/XR+CUvRg57MC7MYKlVlleZ1dM1FZ4rJKcpRYaCRReerobXZNQylOMMMapCBQcnmX0UfvrH/5/ElUFLjyQF6ULbPjJk4SdSJyv11TUaW5//u/tahFfRrqNx3fXuehZ/6tAAAAAElFTkSuQmCC" alt="Tuck Bitcoin donation QR — scan to donate" style="width:100%;height:100%;image-rendering:pixelated;"/></a>
+    <a href="https://tips.osintnet.uk" title="Open in your Bitcoin wallet" style="width:148px;height:148px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;padding:8px;flex-shrink:0;text-decoration:none;"><img src="https://tips.osintnet.uk/qr.svg" alt="Tuck Bitcoin donation QR — scan to donate" style="width:100%;height:100%;image-rendering:pixelated;"/></a>
     <div style="flex:1;min-width:240px;">
-      <div style="font-size:11px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Tuck Donation Address (BTC)</div>
-      <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" title="Open in wallet" style="display:block;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:13px;color:#f7931a;word-break:break-all;background:rgba(247,147,26,0.09);padding:11px 12px;border-radius:8px;margin-bottom:12px;text-decoration:none;user-select:all;">bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02</a>
+      <div style="font-size:11px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Lightning Address (tap to pay)</div>
+      <a href="https://tips.osintnet.uk" title="Open in wallet" style="display:block;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:13px;color:#f7931a;word-break:break-all;background:rgba(247,147,26,0.09);padding:11px 12px;border-radius:8px;margin-bottom:12px;text-decoration:none;user-select:all;">tips@skygive.app</a>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button onclick="navigator.clipboard.writeText('bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02');if(window.tuckToast)tuckToast('Bitcoin address copied');" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">Copy Address</button>
-        <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" style="background:transparent;color:#f7931a;border:1px solid #f7931a;padding:8px 17px;border-radius:9px;font-weight:600;font-size:13px;text-decoration:none;display:inline-block;">Open in Wallet</a>
+        <button onclick="navigator.clipboard.writeText('tips@skygive.app');if(window.tuckToast)tuckToast('Bitcoin address copied');" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">Copy Address</button>
+        <a href="https://tips.osintnet.uk" style="background:transparent;color:#f7931a;border:1px solid #f7931a;padding:8px 17px;border-radius:9px;font-weight:600;font-size:13px;text-decoration:none;display:inline-block;">Open in Wallet</a>
       </div>
     </div>
   </div>
@@ -4012,7 +4012,7 @@ const TuckV2 = { isV2: isV2Request, route: routeV2 };
 
 
 // ═══════════ WAR 3.0 INDEX PAGE (added Jun 5, 2026) ═══════════
-const WAR3_API = "https://tucks-war3.YOUR-ACCOUNT.workers.dev";
+const WAR3_API = "https://tucks-war3.thom-rvr.workers.dev";
 
 const WAR3_CSS = `
 .w3-wrap{display:flex;flex-direction:column;gap:var(--sp-4);}
@@ -4186,8 +4186,8 @@ var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
 // worker.js
-var INGEST_URL = "https://geoint-ingest-worker.YOUR-ACCOUNT.workers.dev";
-var PRICE_URL = "https://geoint-price-worker.YOUR-ACCOUNT.workers.dev";
+var INGEST_URL = "https://geoint-ingest-worker.thom-rvr.workers.dev";
+var PRICE_URL = "https://geoint-price-worker.thom-rvr.workers.dev";
 var CAPWATCH = "https://capwatch.osintnet.uk";
 var WATCHLIST = [
   { ticker: "NVDA", name: "Nvidia", sector: "Semiconductor", desc: "Designs the AI chips that power ChatGPT, data centers, and autonomous vehicles. The backbone of the AI revolution.", geo: "China/Taiwan", cat: "semi" },
@@ -7283,18 +7283,18 @@ var ABOUT_HTML = buildLegalPage("About", `
 <div class="donate-card" style="margin-top:48px;padding:28px;border:1px solid rgba(247,147,26,0.3);border-radius:14px;background:linear-gradient(180deg,rgba(247,147,26,0.06),rgba(247,147,26,0.02))">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
     <span style="font-size:22px">₿</span>
-    <h3 style="margin:0;color:#f7931a;font-size:18px">Support Tuck — Anonymous Bitcoin Only</h3>
+    <h3 style="margin:0;color:#f7931a;font-size:18px">Support Tuck — Bitcoin &amp; Lightning ⚡</h3>
   </div>
   <p style="color:#cbd5e1;font-size:14px;line-height:1.7;margin-bottom:18px">
     To remain truly sovereign, we only accept <strong>anonymous, universal Bitcoin donations — from only those who can afford it, of course</strong>. No Stripe, no Patreon, no Cash App, no payment processors who can deplatform us or build profiles on our donors. Bitcoin is borderless, permissionless, and final — the only money that lets us stay free.
   </p>
   <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;background:rgba(0,0,0,0.3);padding:18px;border-radius:10px">
-    <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" title="Open in your Bitcoin wallet" style="width:140px;height:140px;border-radius:8px;background:white;display:flex;align-items:center;justify-content:center;padding:8px;flex-shrink:0;text-decoration:none"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAagAAAGoAQAAAAA7yUxtAAADtElEQVR4nO1c2W4cMQwji/n/X2YfdCZ9KQK09miVY3bWayIRBNkUJQ+FH3z9+gloUYv6ONQD0O4EiqIAEHatYVCgcub9dk1FPQAEALRXUSDMN/JX+mDNvN+uqagHCF9RACH7gUB3EUHBHeZevd+uqainv3FvmeMg2OIYl8ZM7rdrKqr7ixBECRlLubmB6kTyfrumoh6gRQ4FEZATD9LWQcLDLGbeb9dUFDJu9BffAbnfrqmo51t02c7FIBZ9vBz2ArumoqBwg1SvNVa3qHkbX8dQkQer6LylyMgEWS2Blt3eb9dUFJUcUEzP+CeMlFmMj+33frsmoyRktiUwhSgAJEWJMncB5t132DURFfGlUguBLythXnPaxtdZlIzMQxAp2jIoKNY/XyPtIu3+dRAVapNnxnJtN4NMyM8z8ja+zqFyV3I/FbGwlc8cxRTu9d//w0V9Q9nOFXUUAAIb94gUTKQkcuspJ1FeiowFsHKtHLT48sqXL5H32zUaRYn0MKOHFQELpogvWlFFG18nUa4fZnKM4oKC3HuRe1EuIt5v11RUZcFBDKms/zs5dL6BnPICu6aiGDQ+b2009jUkj0dr4bjfrqmoph9CfwwV2Y/5Rjjut2sqigoNt/FBAF2G+uLHja87UAxxUH0k2tqsKcA44/LDw6ioJluzISETCUPcQK6LzhrfYtdEFKMF1L70/X3IiOwDL7BrKorVb+3th65oqNEM5dTVDw+jrP8w9yZVa6glYC5zRI+AL5332zUZZVtU1lQAkJFIe2EsWn+FrX8dRVkBUumX9s75RWuQ8mrl9kedRVFxpCGkXpqf6IwwEjO5KPwSuyaisnTM3LP6UB0kYru+wK6pqH4EJbtswnfZjJju2v75w6jWJcryR1Uo1SVf75BafngO9bS+mqYlwrs2vhwqCm++wa6pqBRx6aHTQssmuLYRq+XWK0+jXNOAqYeCpV/eDUA7wddaFA/8h4vqKG9+cmEjmkVDehKNxTPXxtXnD6LyrHIXoJC8sNPCWiBfYNdUVDYBJJkwnTA2K+/5LYF+96+jqDxf2Q99RcchUSQjRnb/Oopq55dNHMwzlf0St97pu/rhMVR7vk09uiH2MiuE0QMv6svLNw6i2vNtqvGaqKfb+O5lzaNwkni/XR+CUvRg57MC7MYKlVlleZ1dM1FZ4rJKcpRYaCRReerobXZNQylOMMMapCBQcnmX0UfvrH/5/ElUFLjyQF6ULbPjJk4SdSJyv11TUaW5//u/tahFfRrqNx3fXuehZ/6tAAAAAElFTkSuQmCC" alt="Tuck Bitcoin donation QR" style="width:100%;height:100%;image-rendering:pixelated"/></a>
+    <a href="https://tips.osintnet.uk" title="Open in your Bitcoin wallet" style="width:140px;height:140px;border-radius:8px;background:white;display:flex;align-items:center;justify-content:center;padding:8px;flex-shrink:0;text-decoration:none"><img src="https://tips.osintnet.uk/qr.svg" alt="Tuck Bitcoin donation QR" style="width:100%;height:100%;image-rendering:pixelated"/></a>
     <div style="flex:1;min-width:240px">
-      <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Donation Address</div>
-      <div id="btc-addr" style="font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:13px;color:#f7931a;word-break:break-all;background:rgba(247,147,26,0.08);padding:10px 12px;border-radius:6px;margin-bottom:10px;user-select:all"><a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" style="color:#f7931a;text-decoration:none" title="Open in wallet">bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02</a></div>
-      <button onclick="(function(){navigator.clipboard.writeText('bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02');var b=event.target;var t=b.textContent;b.textContent='✓ Copied';b.style.background='#10b981';setTimeout(function(){b.textContent=t;b.style.background='';},2000);})()" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Copy Address</button>
-      <a href="bitcoin:bc1qz5hypzhhsjndtyknenxdrrmg4f532au34jpy02?label=Tuck%20by%20VPDLNY&message=Support%20free%20financial%20intelligence" style="display:inline-block;margin-left:8px;background:transparent;color:#f7931a;border:1px solid #f7931a;padding:8px 17px;border-radius:8px;font-weight:600;font-size:13px;text-decoration:none">Open in Wallet</a>
+      <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Lightning Address</div>
+      <div id="btc-addr" style="font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:13px;color:#f7931a;word-break:break-all;background:rgba(247,147,26,0.08);padding:10px 12px;border-radius:6px;margin-bottom:10px;user-select:all"><a href="https://tips.osintnet.uk" style="color:#f7931a;text-decoration:none" title="Open in wallet">tips@skygive.app</a></div>
+      <button onclick="(function(){navigator.clipboard.writeText('tips@skygive.app');var b=event.target;var t=b.textContent;b.textContent='✓ Copied';b.style.background='#10b981';setTimeout(function(){b.textContent=t;b.style.background='';},2000);})()" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Copy Address</button>
+      <a href="https://tips.osintnet.uk" style="display:inline-block;margin-left:8px;background:transparent;color:#f7931a;border:1px solid #f7931a;padding:8px 17px;border-radius:8px;font-weight:600;font-size:13px;text-decoration:none">Open in Wallet</a>
     </div>
   </div>
   <p style="color:#64748b;font-size:12px;margin-top:14px;text-align:center;font-style:italic">
@@ -7310,6 +7310,10 @@ var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
+    // SOVEREIGN TIP REDIRECT — canonical Lightning tip page
+    if (path === "/tip" || path === "/tip/") {
+      return Response.redirect("https://tips.osintnet.uk", 302);
+    }
     // CANONICAL HOST: redirect tuck.osintnet.uk -> tuck.osintnet.uk (301 permanent)
     if (url.hostname === "market.osintnet.uk") {
       url.hostname = "tuck.osintnet.uk";
@@ -7769,7 +7773,7 @@ var worker_default = {
           const isStale = ageMin > staleThreshold;
           // If stale during market hours, fire a background refresh (no await — don't block user)
           if (isStale && inSession && env.TUCK_REFRESH_SECRET) {
-            ctx.waitUntil(fetch('https://tuck-cache-refresh.YOUR-ACCOUNT.workers.dev/refresh', {
+            ctx.waitUntil(fetch('https://tuck-cache-refresh.thom-rvr.workers.dev/refresh', {
               method: 'POST',
               headers: { 'Authorization': 'Bearer ' + env.TUCK_REFRESH_SECRET }
             }).catch(()=>{}));
@@ -7950,7 +7954,7 @@ var worker_default = {
 
     if (path === "/api/scenarios") {
       try {
-        const r = await fetch('https://scenario-engine.YOUR-ACCOUNT.workers.dev/scenarios', { cf: { cacheTtl: 300 }});
+        const r = await fetch('https://scenario-engine.thom-rvr.workers.dev/scenarios', { cf: { cacheTtl: 300 }});
         const d = await r.json();
         return new Response(JSON.stringify(d), {headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=300'}});
       } catch(e) {
@@ -7970,7 +7974,7 @@ var worker_default = {
         }
         // Per-ticker history (?ticker=NVDA) — pass through to live worker (small payload, fine)
         const qs = ticker ? ('?ticker=' + encodeURIComponent(ticker)) : '';
-        const r = await fetch('https://tucks-score.YOUR-ACCOUNT.workers.dev/scores' + qs, { cf: { cacheTtl: 300 }});
+        const r = await fetch('https://tucks-score.thom-rvr.workers.dev/scores' + qs, { cf: { cacheTtl: 300 }});
         const d = await r.json();
         return new Response(JSON.stringify(d), {headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=300'}});
       } catch(e) {
