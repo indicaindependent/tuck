@@ -3895,7 +3895,7 @@ async function aboutRoute({ env, url, spa = false }) {
       <div style="font-size:11px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Lightning Address (tap to pay)</div>
       <a href="https://tips.osintnet.uk" title="Open in wallet" style="display:block;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:13px;color:#f7931a;word-break:break-all;background:rgba(247,147,26,0.09);padding:11px 12px;border-radius:8px;margin-bottom:12px;text-decoration:none;user-select:all;">tips@skygive.app</a>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button onclick="navigator.clipboard.writeText('tips@skygive.app');if(window.tuckToast)tuckToast('Bitcoin address copied');" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">Copy Address</button>
+        <button onclick="navigator.clipboard.writeText("__REDACTED_EMAIL__");if(window.tuckToast)tuckToast('Bitcoin address copied');" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">Copy Address</button>
         <a href="https://tips.osintnet.uk" style="background:transparent;color:#f7931a;border:1px solid #f7931a;padding:8px 17px;border-radius:9px;font-weight:600;font-size:13px;text-decoration:none;display:inline-block;">Open in Wallet</a>
       </div>
     </div>
@@ -7293,7 +7293,7 @@ var ABOUT_HTML = buildLegalPage("About", `
     <div style="flex:1;min-width:240px">
       <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Lightning Address</div>
       <div id="btc-addr" style="font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:13px;color:#f7931a;word-break:break-all;background:rgba(247,147,26,0.08);padding:10px 12px;border-radius:6px;margin-bottom:10px;user-select:all"><a href="https://tips.osintnet.uk" style="color:#f7931a;text-decoration:none" title="Open in wallet">tips@skygive.app</a></div>
-      <button onclick="(function(){navigator.clipboard.writeText('tips@skygive.app');var b=event.target;var t=b.textContent;b.textContent='✓ Copied';b.style.background='#10b981';setTimeout(function(){b.textContent=t;b.style.background='';},2000);})()" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Copy Address</button>
+      <button onclick="(function(){navigator.clipboard.writeText("__REDACTED_EMAIL__");var b=event.target;var t=b.textContent;b.textContent='✓ Copied';b.style.background='#10b981';setTimeout(function(){b.textContent=t;b.style.background='';},2000);})()" style="background:#f7931a;color:#0a0f1e;border:0;padding:9px 18px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Copy Address</button>
       <a href="https://tips.osintnet.uk" style="display:inline-block;margin-left:8px;background:transparent;color:#f7931a;border:1px solid #f7931a;padding:8px 17px;border-radius:8px;font-weight:600;font-size:13px;text-decoration:none">Open in Wallet</a>
     </div>
   </div>
