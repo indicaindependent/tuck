@@ -101,4 +101,4 @@ Their public endpoint occasionally throttles. Cache responses in KV with a 30-60
 
 ## Need help?
 
-Open an issue or join us on [Discord](https://discord.gg/vpdlny).
+Open an issue or join us on [Discord](https://discord.osintnet.uk).
