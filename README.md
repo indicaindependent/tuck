@@ -87,7 +87,7 @@ The public worker calls a set of pluggable backend services for the heavier data
    - `AI` — Workers AI binding
    - `TUCK_KV` — KV namespace for rate limiting / caching
    - a bearer secret for whatever congress-trade backend you use (or replace that proxy)
-4. Point the named backend-URL placeholders in `src/peoples-market-worker.js` at your own workers, or remove those sections.
+4. Point the named backend-URL placeholders in `src/tuck-worker.js` at your own workers, or remove those sections.
 5. Deploy: `wrangler deploy`.
 
 See [docs/SETUP.md](docs/SETUP.md) for the full guide.
@@ -96,7 +96,7 @@ See [docs/SETUP.md](docs/SETUP.md) for the full guide.
 
 | File | Purpose |
 |------|---------|
-| [`src/peoples-market-worker.js`](src/peoples-market-worker.js) | The single-file worker — HTML, CSS, JS, and every API route |
+| [`src/tuck-worker.js`](src/tuck-worker.js) | The single-file worker — HTML, CSS, JS, and every API route |
 | [`docs/SETUP.md`](docs/SETUP.md) | Deploy-it-yourself guide |
 | [`docs/ASK_TUCK_PROMPT.md`](docs/ASK_TUCK_PROMPT.md) | The exact system prompt that gives Tuck his personality and guardrails |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit together |

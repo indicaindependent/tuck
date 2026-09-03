@@ -17,7 +17,7 @@ This is deliberate:
 ## Request flow
 
 ```
-User → Cloudflare Edge → peoples-market-worker
+User → Cloudflare Edge → tuck-worker
                               │
                               ├─ GET / → serves embedded HTML
                               ├─ GET /api/prices → Yahoo Finance proxy

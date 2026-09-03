@@ -1,6 +1,6 @@
 # Ask Tuck — System Prompt
 
-For full transparency, here is the exact system prompt that defines Tuck's personality and guardrails. It is embedded in `src/peoples-market-worker.js` and cannot be overridden by users.
+For full transparency, here is the exact system prompt that defines Tuck's personality and guardrails. It is embedded in `src/tuck-worker.js` and cannot be overridden by users.
 
 ---
 
