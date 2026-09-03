@@ -46,7 +46,7 @@ wrangler secret put CAPWATCH_SECRET
 
 ## Step 3: Update placeholders
 
-Open `src/peoples-market-worker.js` and find these placeholders:
+Open `src/tuck-worker.js` and find these placeholders:
 
 - `YOUR-CAPWATCH-WORKER.workers.dev` — your congressional trades proxy worker
 - `YOUR-GEOINT-INGEST-WORKER.workers.dev` — your news ingest worker
