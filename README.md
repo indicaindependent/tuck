@@ -123,8 +123,8 @@ Tuck's Llama 3.3 instance carries these in its system prompt — users can't ove
 
 ## Connect
 
-- 🌐 [tuck.osintnet.uk](https://tuck.osintnet.uk)
-- 🐦 Bluesky: [@indicaindependent.bsky.social](https://bsky.app/profile/indicaindependent.bsky.social)
+- [tuck.osintnet.uk](https://tuck.osintnet.uk)
+- Bluesky: [@indicaindependent.bsky.social](https://bsky.app/profile/indicaindependent.bsky.social)
 
 ---
 
@@ -132,7 +132,7 @@ Tuck's Llama 3.3 instance carries these in its system prompt — users can't ove
 
 ---
 
-## ⚡ Support the mission
+## Support the mission
 
 Free, ad-free, independent infrastructure — no VC, no strings. If it served you, a tip keeps it alive.
 
