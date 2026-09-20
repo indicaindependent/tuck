@@ -7271,7 +7271,6 @@ var ABOUT_HTML = buildLegalPage("About", `
 
 <h2>Connect</h2>
 <ul>
-  <li>Discord: <a href="https://discord.gg/vpdlny" target="_blank">discord.gg/vpdlny</a></li>
   <li>GitHub: <a href="https://github.com/vpdlny" target="_blank">github.com/vpdlny</a> (source releases coming)</li>
   <li>Contact: <a href="mailto:hello@osintnet.uk">hello@osintnet.uk</a></li>
 </ul>
