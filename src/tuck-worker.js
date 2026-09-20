@@ -4311,7 +4311,6 @@ function buildHTML() {
 <!-- PERFORMANCE -->
 <link rel="preconnect" href="https://assets.warheatmap.app" crossorigin/>
 <link rel="dns-prefetch" href="https://assets.warheatmap.app"/>
-<link rel="dns-prefetch" href="//discord.gg"/>
 <link rel="dns-prefetch" href="//github.com"/>
 
 <!-- STRUCTURED DATA (JSON-LD) -->
@@ -4367,7 +4366,6 @@ function buildHTML() {
         "Open Source Software"
       ],
       "sameAs": [
-        "https://discord.gg/vpdlny",
         "https://github.com/indicaindependent",
         "https://bsky.app/profile/indicaindependent.bsky.social"
       ]
@@ -5182,7 +5180,6 @@ footer{background:rgba(0,0,0,0.3);border-top:1px solid var(--border);padding:28p
       <a href="/privacy" data-modal="privacy">Privacy Policy</a>
       <a href="/tos" data-modal="tos">Terms of Service</a>
       <a href="/about" data-modal="about">About Tuck</a>
-      <a href="https://discord.gg/vpdlny" target="_blank">Community</a>
     </div>
   </div>
 </div>
@@ -5436,7 +5433,7 @@ footer{background:rgba(0,0,0,0.3);border-top:1px solid var(--border);padding:28p
   <div class="footer-grid">
     <div class="footer-col">
       <h4>Tuck</h4>
-      <p>Built by <strong>Indica Independent Media</strong> — the public face of <a href="https://discord.gg/vpdlny" target="_blank">VPDLNY</a>. A collective of technologists and artists who use knowledge as a tool to defend vulnerable communities.</p>
+      <p>Built by <strong>Indica Independent Media</strong> — the public face of VPDLNY. A collective of technologists and artists who use knowledge as a tool to defend vulnerable communities.</p>
       <p style="margin-top:8px">This platform runs entirely on free infrastructure. It costs nothing to operate and will never be paywalled.</p>
       <div class="vpdlny-badge">\u{1F6E1}\uFE0F A VPDLNY Project \xB7 osintnet.uk</div>
     </div>
@@ -6897,7 +6894,7 @@ window.addEventListener('DOMContentLoaded', function() {
         </details>
         <details>
           <summary>How do I get involved?</summary>
-          <p>The community lives at <a href="https://discord.gg/vpdlny" target="_blank" rel="noopener">discord.gg/vpdlny</a>. Show up, read, contribute, or just listen. There is no application form.</p>
+          <p>The work is public on <a href="https://github.com/indicaindependent" target="_blank" rel="noopener">github.com/indicaindependent</a>. Read it, open an issue, send a patch, or just follow along. There is no application form.</p>
         </details>
       </div>
 
