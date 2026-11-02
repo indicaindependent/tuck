@@ -1,14 +1,10 @@
 # Tuck
 
-> **Free financial intelligence — what Wall Street hoards, we hand back.**
->
-> *"Patron saint of the unbanked, the unpriced, and the unwelcome. He stands with the vulnerable, the poor, and the oppressed — freeing them from the bonds of class warfare with the one weapon Wall Street fears most: information."*
+<div align="center">
 
-<p align="center">
-  <img src="public/img/tuck-128.png" alt="Tuck" width="128"/>
-</p>
+<a href="https://tuck.osintnet.uk"><img src="https://raw.githubusercontent.com/indicaindependent/tuck/main/assets/tuck-cover.svg" alt="Tuck: free financial intelligence, what Wall Street hoards, we hand back. Free Cloudflare Worker with live congressional stock trade tracking, sector heat maps, market signal scanner, and Ask Tuck AI guide, with no login, no ads, no tracking, and not financial advice." width="100%"></a>
 
-**Live:** [tuck.osintnet.uk](https://tuck.osintnet.uk)
+**[OPEN TUCK](https://tuck.osintnet.uk)** &nbsp; / &nbsp; **[Source Code](https://github.com/indicaindependent/tuck)** &nbsp; / &nbsp; [What it is](#what-it-is) &nbsp; / &nbsp; [Architecture](#architecture) &nbsp; / &nbsp; [Setup Guide](docs/SETUP.md)
 
 [![Live](https://img.shields.io/badge/live-tuck.osintnet.uk-2ea44f?style=for-the-badge)](https://tuck.osintnet.uk)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
@@ -16,11 +12,23 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=for-the-badge)](.github/CONTRIBUTING.md)
 
+<p align="center">
+  <img src="public/img/tuck-128.png" alt="Tuck" width="128"/>
+</p>
+
+> **Free financial intelligence — what Wall Street hoards, we hand back.**
+>
+> *"Patron saint of the unbanked, the unpriced, and the unwelcome. He stands with the vulnerable, the poor, and the oppressed — freeing them from the bonds of class warfare with the one weapon Wall Street fears most: information."*
+
 Built and maintained by **VPDLNY**.
+
+</div>
 
 ---
 
 ## What it is
+
+<img src="https://raw.githubusercontent.com/indicaindependent/tuck/main/assets/tuck-features.svg" alt="What Tuck does: live congressional trades, a sector heat map, the market scanner and Ask Tuck, the Llama 3.3 guide wired to live data." width="100%">
 
 Tuck is a single-file Cloudflare Worker — HTML, CSS, JS, and every API route in one file, zero build step — that turns paywalled market intelligence into something anyone can open for free. No login, no ads, no tracking, no PFOF, no financial advice. Ever.
 
