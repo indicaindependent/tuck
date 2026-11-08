@@ -140,8 +140,8 @@ Tuck's Llama 3.3 instance carries these in its system prompt — users can't ove
 
 ---
 
-## Support the mission
+## Donations
 
-Free, ad-free, independent infrastructure — no VC, no strings. If it served you, a tip keeps it alive.
+We don't monetize and we don't accept donations. If you have money to give away, you don't need our services. Give it to Ukraine's defense instead: https://u24.gov.ua/donate/defense
 
-[![Donate via SkyGive](https://img.shields.io/badge/Donate_via_SkyGive-8A5CF6?style=for-the-badge&logoColor=white)](https://donate.skygive.app/)
+[![Donate to Ukraine's defense (UNITED24)](https://img.shields.io/badge/Donate_to_Ukraine%27s_defense_(UNITED24)-0057B7?style=for-the-badge)](https://u24.gov.ua/donate/defense)
