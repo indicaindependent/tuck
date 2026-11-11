@@ -12,7 +12,7 @@ This is deliberate:
 2. **Fast**: edge-served from 300+ Cloudflare locations
 3. **Cheap**: runs on Workers free tier for most communities
 4. **Auditable**: no transitive dependencies, no `node_modules`, no supply chain risk
-5. **Forkable**: a single file is easier to understand and modify than 50
+5. **Easy to change**: one source file (`src/tuck-worker.js`) is easier to read and modify than fifty
 
 ## Request flow
 
